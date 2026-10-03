@@ -40,9 +40,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // ==========================================
-  // MOCK API ENDPOINTS FOR LOCAL DEV IN VS CODE
-  // ==========================================
+  // Mock API endpoints
   if (urlPath === '/api/server-info' || urlPath === '/api/server-info.php') {
     const interfaces = os.networkInterfaces();
     let localIp = '127.0.0.1';
@@ -140,9 +138,7 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // ==========================================
-  // STATIC FILES SERVING & SPA FALLBACK
-  // ==========================================
+  // Static files and SPA fallback
   let safePath = path.normalize(urlPath).replace(/^(\.\.[\/\\])+/, '');
   if (safePath === '/' || safePath === '\\') {
     safePath = '/index.html';

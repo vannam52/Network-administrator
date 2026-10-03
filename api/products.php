@@ -1,9 +1,4 @@
 <?php
-// ========================================================
-// ĐỀ TÀI 10 - QUẢN TRỊ MẠNG: PRODUCTS API (DUAL-MODE DATABASE)
-// ========================================================
-// Hỗ trợ đồng thời MySQL tập trung (VM 4) và JSON fallback cục bộ.
-
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');

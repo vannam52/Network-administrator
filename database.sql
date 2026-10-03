@@ -1,10 +1,3 @@
--- ========================================================
--- ĐỀ TÀI 10 - QUẢN TRỊ MẠNG: CƠ SỞ DỮ LIỆU TẬP TRUNG (VM 4)
--- IP MÁY CHỦ DATABASE: 100.72.145.103 (Mạng Tailscale) / 192.168.10.40 (Mạng LAN)
--- Phụ trách: Thành viên 5 - Thành Phát (Database, DevOps & Cloud)
--- ========================================================
-
--- 1. Tạo Database
 CREATE DATABASE IF NOT EXISTS `shop_db` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `shop_db`;
 

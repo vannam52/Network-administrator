@@ -1,7 +1,3 @@
-# ========================================================
-# ĐỀ TÀI 10 - QUẢN TRỊ MẠNG: APACHE CONFIGURATION (.htaccess)
-# ========================================================
-
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /

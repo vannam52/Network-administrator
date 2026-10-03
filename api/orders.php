@@ -1,10 +1,4 @@
 <?php
-// ========================================================
-// ĐỀ TÀI 10 - QUẢN TRỊ MẠNG: ORDERS API (DUAL-MODE DATABASE)
-// ========================================================
-// Tự động kết nối MySQL tập trung (VM 4 - Thành Phát).
-// Nếu MySQL chưa online, tự động dùng JSON cục bộ mà không báo lỗi.
-
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');

@@ -1,9 +1,4 @@
 <?php
-// ========================================================
-// KẾT NỐI DATABASE TẬP TRUNG QUA MẠNG TAILSCALE
-// IP Máy chủ Database của bạn Thành Phát (VM 4): 100.72.145.103
-// ========================================================
-
 $dbHost = '100.72.145.103';
 $dbPort = '3306';
 $dbName = 'shop_db';

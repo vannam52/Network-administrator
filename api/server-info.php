@@ -1,11 +1,4 @@
 <?php
-// ========================================================
-// ĐỀ TÀI 10 - QUẢN TRỊ MẠNG: BACKEND SERVER INFO ENDPOINT
-// ========================================================
-// Endpoint này trả về thông tin máy chủ thực tế (IIS hay Apache)
-// và tình trạng kết nối CSDL tập trung MySQL (VM 4 - Thành Phát)
-// giúp kiểm tra NGINX Load Balancer cân bằng tải đa nền tảng.
-
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
