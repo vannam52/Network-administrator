@@ -1,0 +1,21 @@
+{
+  "name": "network-administrator-frontend",
+  "version": "1.0.0",
+  "description": "Techno Store - Triển khai hệ thống Hosting E-commerce Đa nền tảng (Đề tài 10)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "node -e \"console.log('Project is pre-built, ready to run!')\""
+  },
+  "keywords": [
+    "qtm",
+    "ecommerce",
+    "nginx",
+    "load-balancer",
+    "iis",
+    "apache"
+  ],
+  "author": "",
+  "license": "ISC"
+}

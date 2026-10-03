@@ -1,0 +1,17 @@
+/* File CSS tùy biến cho dự án */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ========================================================
+   ẨN THANH CHUYỂN ĐỔI DEMO [Khách hàng / Quản trị] Ở ĐÁY MÀN HÌNH
+   ========================================================
+   Giúp website chuyên nghiệp và đúng chuẩn thực tế: Khách hàng không
+   thể tùy tiện bấm chuyển sang quyền Quản trị.
+   Để vào trang Quản trị:
+   1. Cuộn xuống chân trang (Footer) bấm "Cổng quản trị →"
+   2. Hoặc mở trực tiếp từ menu / form đăng nhập.
+*/
+div[class*="fixed bottom-4 left-1/2"] {
+  display: none !important;
+}

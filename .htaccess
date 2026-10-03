@@ -1,0 +1,25 @@
+# ========================================================
+# ĐỀ TÀI 10 - QUẢN TRỊ MẠNG: APACHE CONFIGURATION (.htaccess)
+# ========================================================
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # 1. Tự động chuyển các request /api/xxx thành api/xxx.php nếu file tồn tại
+  RewriteCond %{DOCUMENT_ROOT}/api/$1.php -f
+  RewriteRule ^api/([a-zA-Z0-9_-]+)$ api/$1.php [L,QSA]
+
+  # 2. Cho phép các file API và file tĩnh thực tế được truy cập trực tiếp
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # 3. Định tuyến các đường dẫn còn lại về index.html cho React SPA
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Cấu hình bảo mật và quyền truy cập CORS
+<FilesMatch "\.(json)$">
+  Header set Access-Control-Allow-Origin "*"
+</FilesMatch>

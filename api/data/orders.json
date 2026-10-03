@@ -1,0 +1,50 @@
+[
+  {
+    "id": "DH903373",
+    "customer": "Khách vãng lai",
+    "phone": "",
+    "address": "",
+    "date": "3/10/2026",
+    "total": 0,
+    "status": "Mới đặt",
+    "pay": "Tiền mặt",
+    "items": [],
+    "processedBy": "Local Dev Server (VS Code)"
+  },
+  {
+    "id": "DH24101",
+    "customer": "Nguyễn Minh Anh",
+    "phone": "0901 234 567",
+    "address": "45 Lê Lợi, P. Bến Nghé, Quận 1, TP.HCM",
+    "date": "02/10/2026",
+    "total": 34990000,
+    "status": "Mới đặt",
+    "pay": "Chuyển khoản",
+    "items": [
+      {
+        "id": 1,
+        "name": "iPhone 16 Pro Max 256GB",
+        "price": 34990000,
+        "qty": 1
+      }
+    ]
+  },
+  {
+    "id": "DH24100",
+    "customer": "Trần Quốc Bảo",
+    "phone": "0912 345 678",
+    "address": "12 Phạm Văn Đồng, TP. Thủ Đức, TP.HCM",
+    "date": "02/10/2026",
+    "total": 6080000,
+    "status": "Đã xác nhận",
+    "pay": "Tiền mặt",
+    "items": [
+      {
+        "id": 9,
+        "name": "AirPods Pro 2 USB-C",
+        "price": 5990000,
+        "qty": 1
+      }
+    ]
+  }
+]
