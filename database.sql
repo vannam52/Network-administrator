@@ -21,6 +21,7 @@ CREATE TABLE `products` (
   `stock` INT NOT NULL DEFAULT 10,
   `rating` DECIMAL(2,1) DEFAULT 5.0,
   `is_new` TINYINT(1) DEFAULT 1,
+  `img` VARCHAR(500) DEFAULT NULL,
   `image_url` VARCHAR(500) DEFAULT NULL,
   `imported` INT NOT NULL DEFAULT 0,
   `sold` INT NOT NULL DEFAULT 0,
@@ -41,6 +42,21 @@ CREATE TABLE `orders` (
   `processed_by` VARCHAR(100) DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 4. Bảng người dùng / khách hàng (users)
+DROP TABLE IF EXISTS `users`;
+CREATE TABLE `users` (
+  `id` VARCHAR(30) PRIMARY KEY,
+  `name` VARCHAR(150) NOT NULL,
+  `email` VARCHAR(150) NOT NULL UNIQUE,
+  `phone` VARCHAR(20) DEFAULT NULL,
+  `password` VARCHAR(255) DEFAULT NULL,
+  `role` VARCHAR(20) NOT NULL DEFAULT 'customer',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `users` (`id`, `name`, `email`, `phone`, `role`) VALUES
+('KH001', 'Trần Văn Nam', 'vannam@gmail.com', '0987654321', 'customer');
 
 -- 4. Chèn dữ liệu mẫu cho sản phẩm
 INSERT INTO `products` (`id`, `code`, `name`, `brand`, `category`, `price`, `cost`, `old_price`, `ram`, `rom`, `chip`, `screen`, `camera`, `battery`, `stock`, `rating`, `is_new`, `imported`, `sold`) VALUES

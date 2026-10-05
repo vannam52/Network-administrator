@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản trị - Phone Store</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { brand: { 50: '#fef2f2', 100: '#fee2e2', 500: '#ef4444', 600: '#dc2626', 700: '#b91c1c' } }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased" x-data="adminApp()" x-init="initApp()">
+
+<div class="flex h-screen overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col transition-all duration-300">
+        <div class="h-16 flex items-center px-6 border-b border-gray-200">
+            <div class="w-8 h-8 rounded-lg bg-brand-500 text-white flex items-center justify-center mr-3">
+                <i data-feather="smartphone" class="w-5 h-5"></i>
+            </div>
+            <span class="text-xl font-bold tracking-tight">Phone<span class="text-brand-500">Admin</span></span>
+        </div>
+        
+        <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+            <template x-for="tab in tabs" :key="tab.id">
+                <button @click="currentTab = tab.id" 
+                    class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors"
+                    :class="currentTab === tab.id ? 'bg-brand-50 text-brand-700' : 'text-gray-600 hover:bg-gray-50'">
+                    <i :data-feather="tab.icon" class="w-5 h-5"></i>
+                    <span x-text="tab.name"></span>
+                </button>
+            </template>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-200">
+            <a href="/" class="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors">
+                <i data-feather="log-out" class="w-4 h-4"></i>
+                Về cửa hàng
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col overflow-hidden relative">
+        <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8">
+            <h1 class="text-xl font-semibold" x-text="tabs.find(t => t.id === currentTab).name"></h1>
+            <div class="flex items-center gap-4">
+                <div class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200">
+                    <i data-feather="user" class="w-5 h-5 text-gray-600"></i>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-8 relative">
+            <!-- Loading overlay -->
+            <div x-show="loading" class="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center" x-cloak>
+                <div class="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+
+            <!-- Tab: Dashboard -->
+            <div x-show="currentTab === 'dashboard'" x-cloak>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-gray-500 text-sm font-medium mb-1 flex items-center gap-2">
+                            <i data-feather="dollar-sign" class="w-4 h-4"></i> Doanh thu
+                        </div>
+                        <div class="text-3xl font-bold" x-text="formatMoney(stats.revenue)"></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-gray-500 text-sm font-medium mb-1 flex items-center gap-2">
+                            <i data-feather="shopping-bag" class="w-4 h-4"></i> Đơn hàng
+                        </div>
+                        <div class="text-3xl font-bold" x-text="stats.orders"></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-gray-500 text-sm font-medium mb-1 flex items-center gap-2">
+                            <i data-feather="alert-circle" class="w-4 h-4"></i> Sản phẩm sắp hết
+                        </div>
+                        <div class="text-3xl font-bold text-red-500" x-text="stats.lowStock"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Products -->
+            <div x-show="currentTab === 'products'" x-cloak class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="p-5 border-b border-gray-100 flex justify-between items-center">
+                    <input type="text" placeholder="Tìm sản phẩm..." class="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm w-64 focus:outline-none focus:border-brand-500" x-model="searchProduct">
+                    <button @click="showProductModal = true; editProduct = null; resetForm()" class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition">
+                        + Thêm sản phẩm
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm whitespace-nowrap">
+                        <thead class="bg-gray-50 text-gray-500 font-medium">
+                            <tr>
+                                <th class="px-5 py-3">Mã SP</th>
+                                <th class="px-5 py-3">Sản phẩm</th>
+                                <th class="px-5 py-3">Danh mục</th>
+                                <th class="px-5 py-3 text-right">Giá bán</th>
+                                <th class="px-5 py-3 text-center">Tồn kho</th>
+                                <th class="px-5 py-3 text-right">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <template x-for="p in filteredProducts" :key="p.id">
+                                <tr class="hover:bg-gray-50/50 transition">
+                                    <td class="px-5 py-4 font-mono text-xs text-gray-500" x-text="p.code"></td>
+                                    <td class="px-5 py-4 font-medium" x-text="p.name"></td>
+                                    <td class="px-5 py-4 text-gray-500" x-text="p.category"></td>
+                                    <td class="px-5 py-4 text-right text-brand-600 font-semibold" x-text="formatMoney(p.price)"></td>
+                                    <td class="px-5 py-4 text-center">
+                                        <span class="px-2 py-1 rounded-full text-xs font-medium" 
+                                            :class="p.stock <= 5 ? 'bg-red-100 text-red-700' : (p.stock <= 10 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700')" 
+                                            x-text="p.stock"></span>
+                                    </td>
+                                    <td class="px-5 py-4 text-right">
+                                        <button @click="openEditModal(p)" class="text-brand-600 hover:underline mr-3 font-medium">Sửa</button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab: Orders -->
+            <div x-show="currentTab === 'orders'" x-cloak class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm whitespace-nowrap">
+                        <thead class="bg-gray-50 text-gray-500 font-medium">
+                            <tr>
+                                <th class="px-5 py-3">Mã ĐH</th>
+                                <th class="px-5 py-3">Khách hàng</th>
+                                <th class="px-5 py-3">Ngày đặt</th>
+                                <th class="px-5 py-3 text-right">Tổng tiền</th>
+                                <th class="px-5 py-3 text-center">Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <template x-for="o in orders" :key="o.id">
+                                <tr class="hover:bg-gray-50/50 transition">
+                                    <td class="px-5 py-4 font-mono text-xs font-medium" x-text="'#'+o.id"></td>
+                                    <td class="px-5 py-4 font-medium" x-text="o.customer"></td>
+                                    <td class="px-5 py-4 text-gray-500" x-text="o.date"></td>
+                                    <td class="px-5 py-4 text-right font-medium" x-text="formatMoney(o.total)"></td>
+                                    <td class="px-5 py-4 text-center">
+                                        <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700" x-text="o.status"></span>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Product Modal -->
+    <div x-show="showProductModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" x-cloak>
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden" @click.away="showProductModal = false">
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <h3 class="font-semibold text-lg" x-text="editProduct ? 'Sửa sản phẩm' : 'Thêm sản phẩm'"></h3>
+                <button @click="showProductModal = false" class="text-gray-400 hover:text-gray-600">&times;</button>
+            </div>
+            <form @submit.prevent="saveProduct" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tên sản phẩm</label>
+                    <input type="text" x-model="form.name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Giá bán</label>
+                        <input type="number" x-model="form.price" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tồn kho</label>
+                        <input type="number" x-model="form.stock" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
+                    <select x-model="form.category" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+                        <option value="iPhone 17 Series">iPhone 17 Series</option>
+                        <option value="iPhone 16 Series">iPhone 16 Series</option>
+                        <option value="iPhone 15 Series">iPhone 15 Series</option>
+                        <option value="iPhone 14 Series">iPhone 14 Series</option>
+                        <option value="iPhone 11 - 13">iPhone 11 - 13</option>
+                    </select>
+                </div>
+                <div class="pt-4 flex justify-end gap-3">
+                    <button type="button" @click="showProductModal = false" class="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition font-medium">Hủy</button>
+                    <button type="submit" class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition font-medium">Lưu lại</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="js/admin.js"></script>
+</body>
+</html>

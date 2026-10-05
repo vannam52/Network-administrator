@@ -1,4 +1,5 @@
 <?php
+if (ob_get_length()) ob_clean();
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -26,12 +27,43 @@ if ($method === 'GET') {
     $products = [];
     $dataSource = 'Local JSON File';
 
+    $queryError = null;
     if ($pdo !== null) {
         try {
-            $stmt = $pdo->query("SELECT id, code, name, brand, category, price, cost, old_price as old, ram, rom, chip, screen, camera, battery, stock, rating, is_new as isNew, imported, sold FROM products ORDER BY id ASC");
-            $products = $stmt->fetchAll();
+            $stmt = $pdo->query("SELECT * FROM products ORDER BY id ASC");
+            $rawProducts = $stmt->fetchAll();
+            $products = [];
+            foreach ($rawProducts as $p) {
+                $imgUrl = $p['img'] ?? $p['image_url'] ?? $p['image'] ?? '';
+                $p['code'] = $p['code'] ?? ('SP0' . str_pad($p['id'] ?? 1, 2, '0', STR_PAD_LEFT));
+                $p['image_url'] = $imgUrl;
+                $p['image'] = $imgUrl;
+                $p['img'] = $imgUrl;
+                $p['old'] = $p['old_price'] ?? $p['old'] ?? null;
+                $p['isNew'] = isset($p['is_new']) ? (bool)$p['is_new'] : ($p['isNew'] ?? true);
+                $p['price'] = (float)($p['price'] ?? 0);
+                $p['cost'] = (float)($p['cost'] ?? 0);
+                $p['stock'] = (int)($p['stock'] ?? 10);
+                $p['rating'] = (float)($p['rating'] ?? 5.0);
+                $p['sold'] = (int)($p['sold'] ?? 0);
+                $name = $p['name'] ?? '';
+                if (stripos($name, 'iPhone 17') !== false || stripos($name, 'iPhone Air') !== false) {
+                    $p['category'] = 'iPhone 17 Series';
+                } elseif (stripos($name, 'iPhone 16') !== false) {
+                    $p['category'] = 'iPhone 16 Series';
+                } elseif (stripos($name, 'iPhone 15') !== false) {
+                    $p['category'] = 'iPhone 15 Series';
+                } elseif (stripos($name, 'iPhone 14') !== false) {
+                    $p['category'] = 'iPhone 14 Series';
+                } else {
+                    $p['category'] = 'iPhone 11 - 13';
+                }
+                $p['brand'] = 'Apple';
+                $products[] = $p;
+            }
             $dataSource = 'MySQL Central Database (VM 4)';
         } catch (Throwable $e) {
+            $queryError = $e->getMessage();
             $pdo = null;
         }
     }
@@ -44,6 +76,7 @@ if ($method === 'GET') {
     echo json_encode([
         'status' => 'success',
         'source' => $dataSource,
+        'db_error' => $queryError,
         'server' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown Web Server',
         'total' => count($products),
         'data' => $products

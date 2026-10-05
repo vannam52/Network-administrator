@@ -1,6 +1,6 @@
 # ĐỀ TÀI 10: TRIỂN KHAI HỆ THỐNG HOSTING E-COMMERCE ĐA NỀN TẢNG
 > **Môn học**: Quản trị mạng (Network Administration)  
-> **Ứng dụng mẫu**: Nền tảng thương mại điện tử **Techno Store**  
+> **Ứng dụng mẫu**: Nền tảng thương mại điện tử **Phone Store**  
 > **Tên miền nội bộ**: `shop-ecommerce.local`  
 > **Hạ tầng kết nối mạng**: Mạng lưới liên kết máy ảo qua **Tailscale VPN Mesh Network**
 
@@ -20,21 +20,23 @@
 ## 📑 MỤC LỤC
 * [📌 I. Quy hoạch hạ tầng & Dải IP mạng Tailscale](#-i-quy-hoạch-hạ-tầng--dải-ip-mạng-tailscale)
 * [🔑 II. Tài khoản dùng thử & Đăng nhập hệ thống (Test Accounts)](#-ii-tài-khoản-dùng-thử--đăng-nhập-hệ-thống-test-accounts)
-* [👥 III. Bảng phân công nhiệm vụ theo từng thành viên](#-iii-bảng-phân-công-nhiệm-vụ-theo-từng-thành-viên)
-* [🛠️ IV. Hướng dẫn cấu hình chi tiết từng máy chủ](#-iv-hướng-dẫn-cấu-hình-chi-tiết-từng-máy-chủ)
+* [📁 III. Cấu trúc thư mục & Kiến trúc module dự án](#-iii-cấu-trúc-thư-mục--kiến-trúc-module-dự-án)
+* [⚡ IV. Đặc tả hệ thống RESTful API & Cơ chế chịu lỗi CSDL](#-iv-đặc-tả-hệ-thống-restful-api--cơ-chế-chịu-lỗi-csdl)
+* [🌐 V. Sơ đồ kiến trúc mạng & kết nối hệ thống](#-v-sơ-đồ-kiến-trúc-mạng--kết-nối-hệ-thống)
+* [🛠️ VI. Hướng dẫn cấu hình chi tiết từng máy chủ](#-vi-hướng-dẫn-cấu-hình-chi-tiết-từng-máy-chủ)
   * [1. VM 1: NGINX Reverse Proxy & Load Balancer (100.73.121.85)](#1-cấu-hình-vm-1-nginx-reverse-proxy--load-balancer-1007312185)
   * [2. VM 2: Linux Apache / CentOS Web Server (100.86.108.58)](#2-cấu-hình-vm-2-linux-apache--centos-web-server-1008610858)
   * [3. VM 3: Windows Server IIS (100.109.69.94)](#3-cấu-hình-vm-3-windows-server-iis-1001096994)
   * [4. Cụm FTP Server với User Isolation (Trên VM 2 & VM 3)](#4-cấu-hình-cụm-ftp-server-với-user-isolation-trên-vm-2--vm-3)
   * [5. VM 4: Database & Monitoring (100.72.145.103)](#5-cấu-hình-vm-4-database--monitoring-10072145103)
-* [🎯 V. Kịch bản báo cáo & Demo cho Hội đồng / Giảng viên](#-v-kịch-bản-báo-cáo--demo-cho-hội-đồng--giảng-viên)
+* [🎯 VII. Kịch bản báo cáo & Demo cho Hội đồng / Giảng viên](#-vii-kịch-bản-báo-cáo--demo-cho-hội-đồng--giảng-viên)
   * [Kịch bản 1: Cấu hình DNS phân giải tên miền nội bộ](#kịch-bản-1-cấu-hình-dns-phân-giải-tên-miền-nội-bộ)
   * [Kịch bản 2: Demo Cân bằng tải luân phiên (Round-Robin)](#kịch-bản-2-demo-cân-bằng-tải-luân-phiên-round-robin-load-balancing)
   * [Kịch bản 3: Demo Khả năng Chịu lỗi (Failover trong 2s)](#kịch-bản-3-demo-khả-năng-chịu-lỗi-high-availability---failover-trong-2s)
   * [Kịch bản 4: Demo Cô lập người dùng qua FTP](#kịch-bản-4-demo-cô-lập-người-dùng-qua-ftp-ftp-user-isolation)
   * [Kịch bản 5: Demo Giám sát GoAccess & Bắn tải Apache Benchmark](#kịch-bản-5-demo-giám-sát-thời-gian-thực--bắn-tải-devops)
-* [💻 VI. Hướng dẫn chạy thử trực tiếp trên VS Code (Local Dev)](#-vi-hướng-dẫn-chạy-thử-trực-tiếp-trên-vs-code-local-dev)
-* [📚 VII. Tài liệu tham khảo (References)](#-vii-tài-liệu-tham-khảo-references)
+* [💻 VIII. Hướng dẫn chạy thử trực tiếp trên VS Code (Local Dev)](#-viii-hướng-dẫn-chạy-thử-trực-tiếp-trên-vs-code-local-dev)
+* [📚 IX. Tài liệu tham khảo (References)](#-ix-tài-liệu-tham-khảo-references)
 
 ---
 
@@ -46,28 +48,100 @@ Hệ thống cụm máy ảo được kết nối thông suốt với nhau thôn
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **VM 1: NGINX** | `localhost-0` | Linux (Ubuntu Server) | Reverse Proxy & Load Balancer | **`100.73.121.85`** | `80` (HTTP), `443` (HTTPS) |
 | **VM 2: Linux Web Server** | `web-centos` | Linux (CentOS / Ubuntu) | Web Server Backend (Apache/PHP) & FTP | **`100.86.108.58`** | `80` (HTTP), `21` + `40000:40100` (FTP) |
-| **VM 3: Windows IIS** *(Máy bạn)* | `win-7n4gk2a89pl` | Windows Server | Web Server Backend (IIS + PHP) & FTP | **`100.109.69.94`** | `80` (HTTP), `21` + `5000:5100` (FTP) |
-| **VM 4: Database** *(Thành Phát)* | `thanhphat-virtualbox` | Linux (Ubuntu) | MySQL/MariaDB Server & Monitoring | **`100.72.145.103`** | `3306` (MySQL), `7890` (GoAccess Web) |
+| **VM 3: Windows IIS** | `win-7n4gk2a89pl` | Windows Server | Web Server Backend (IIS + PHP) & FTP | **`100.109.69.94`** | `80` (HTTP), `21` + `5000:5100` (FTP) |
+| **VM 4: Database** | `thanhphat-virtualbox` | Linux (Ubuntu) | MySQL/MariaDB Server & Monitoring | **`100.72.145.103`** | `3306` (MySQL), `7890` (GoAccess Web) |
 
-> 🌐 **Tailscale Funnel Public URL (Node IIS của bạn)**: `https://win-7n4gk2a89pl.taileee594.ts.net`
+> 🌐 **Tailscale Funnel Public URL (Node IIS)**: `https://win-7n4gk2a89pl.taileee594.ts.net`
 
 ---
 
 ## 🔑 II. TÀI KHOẢN DÙNG THỬ & ĐĂNG NHẬP HỆ THỐNG (TEST ACCOUNTS)
 
-Hệ thống đã cấu hình sẵn các tài khoản mẫu để phục vụ cho việc kiểm thử và chấm điểm đồ án:
+Hệ thống đã cấu hình sẵn các tài khoản để phục vụ việc kiểm thử, demo và chấm điểm đồ án:
 
-| Vai trò (Role) | Tên đăng nhập / Email | Mật khẩu | Quyền hạn & Chức năng |
+| Vai trò (Role) | Tên đăng nhập / Email | Mật khẩu | Quyền hạn & Hướng dẫn truy cập |
 | :--- | :--- | :--- | :--- |
-| **1. Quản trị viên (Admin)** | **`admin`** | **`admin123`** | **Toàn quyền quản trị**: Quản lý sản phẩm, đơn hàng, danh mục, thiết lập giá bán, kiểm soát kho hàng và khóa/mở tài khoản khách. *(Cách vào: Bấm "Đăng nhập" ở góc trên ➔ chọn "Cổng đăng nhập dành cho Quản trị viên", hoặc bấm "Cổng quản trị →" ở chân trang).* |
-| **2. Khách hàng (Customer)** | **`minhanh@mail.com`** | **`password`** | **Tài khoản người dùng mẫu** (*Nguyễn Minh Anh*): Xem giỏ hàng, thông tin cá nhân, lịch sử đơn mua, đổi địa chỉ nhận hàng và đặt hàng mới. |
-| **3. Lập trình viên FTP (Dev)** | **`dev_linux`** / **`dev_windows`** | *(Tự đặt khi tạo user)* | Upload mã nguồn vào thư mục web qua FTP với tính năng cô lập người dùng (**User Isolation / chroot**). |
-| **4. Dịch vụ Database (MySQL)** | **`shop_user`** | **`Shop@123456`** | Tài khoản kết nối từ xa vào CSDL tập trung `shop_db` tại máy Thành Phát (`100.72.145.103:3306`). |
+| **1. Quản trị viên (Admin)** | **`admin`** | **`admin123`** | **Toàn quyền quản trị**: Quản lý kho hàng, cập nhật giá & số lượng tồn kho, duyệt đơn hàng, thống kê doanh thu và quản lý danh sách khách hàng.<br>👉 **Cách vào**: Truy cập thẳng vào URL **`/admin`** (ví dụ `http://shop-ecommerce.local/admin` hoặc `http://localhost:3000/admin`), hoặc bấm liên kết **"Cổng quản trị →"** tại chân trang (Footer). |
+| **2. Lập trình viên FTP (Dev)** | **`dev_linux`** / **`dev_windows`** | *(Tự đặt khi tạo user)* | Upload mã nguồn vào thư mục web qua FTP với tính năng cô lập người dùng (**User Isolation / chroot**). |
+| **3. Dịch vụ Database (MySQL)** | **`shop_user`** | **`Shop@123456`** | Tài khoản kết nối từ xa vào CSDL tập trung `shop_db` tại máy (`100.72.145.103:3306`). |
+
+> 💡 **Lưu ý đối với Khách hàng**: Vì đây là đề tài Quản trị mạng (tập trung vào hạ tầng và phân tải), hệ thống mở hoàn toàn cho việc trải nghiệm luồng mua sắm: người dùng có thể nhập bất kỳ Email/Họ tên nào để đăng ký/đặt hàng trực tiếp trên giao diện mà không cần qua bước OTP xác thực email phức tạp. Dữ liệu sau khi đăng ký hoặc đặt hàng sẽ được đồng bộ tức thì sang CSDL/JSON và hiển thị trực tiếp trên trang Quản trị.
 
 ---
 
-## 👥 III. BẢNG PHÂN CÔNG NHIỆM VỤ THEO TỪNG THÀNH VIÊN
-*(Theo phân công chi tiết tại tài liệu [Document-1.pdf](file:///d:/Work_Project/QTM/Network-administrator/Document-1.pdf))*
+## 📁 III. CẤU TRÚC THƯ MỤC & KIẾN TRÚC MODULE DỰ ÁN
+
+Toàn bộ mã nguồn dự án được tổ chức theo kiến trúc module hóa chuyên nghiệp, tách biệt rõ ràng giữa Frontend khách hàng, Bảng điều khiển quản trị (Admin) và Cụm API dịch vụ:
+
+```text
+Network-administrator/
+├── admin/                        # 🎛️ Phân hệ Bảng điều khiển Quản trị viên
+│   ├── css/
+│   │   └── admin.css             # CSS tách riêng độc lập của Admin (Gọn nhẹ, không xung đột)
+│   ├── js/
+│   │   └── admin.js              # Xử lý logic đồng bộ thời gian thực (Orders, Users, Inventory)
+│   └── index.html                # Giao diện Dashboard điều hành hệ thống
+├── api/                          # 🌐 Cụm RESTful API Backend (Hỗ trợ cả PHP & Node.js)
+│   ├── products.php              # API quản lý sản phẩm, tồn kho, giá bán
+│   ├── orders.php                # API tiếp nhận đặt hàng, đổi trạng thái đơn
+│   ├── users.php                 # API đăng ký & danh sách người dùng thực tế
+│   ├── dashboard.php             # API tổng hợp chỉ số doanh thu & báo cáo
+│   ├── server-info.php           # API nhận diện thông tin Node Server (Phục vụ cân bằng tải)
+│   ├── db.php                    # Trình điều khiển kết nối MySQL PDO
+│   └── data/                     # 💾 Kho lưu trữ dữ liệu dự phòng (JSON Fallback Storage)
+│       ├── products.json         # Dữ liệu sản phẩm nội bộ
+│       ├── orders.json           # Dữ liệu đơn hàng nội bộ
+│       └── users.json            # Dữ liệu khách hàng thực tế đã đăng ký
+├── assets/                       # ⚛️ Frontend React SPA dành cho khách mua sắm
+│   ├── main.js                   # Mã nguồn React tối ưu hóa
+│   └── style.css                 # Hệ thống CSS giao diện cửa hàng
+├── custom.js                     # Script mở rộng và hỗ trợ đồng bộ dữ liệu
+├── custom.css                    # Tùy biến kiểu dáng hiển thị bổ sung
+├── config.js                     # Cấu hình định danh từng máy chủ ([Server 1] / [Server 2])
+├── database.sql                  # Script khởi tạo trọn vẹn CSDL MySQL tập trung (VM 4)
+├── server.js                     # Full-stack Local Dev Server (Hỗ trợ test nhanh không cần cài PHP)
+├── .htaccess                     # Cấu hình định tuyến URL Rewrite cho Apache (Linux)
+└── web.config                    # Cấu hình định tuyến URL Rewrite cho IIS (Windows Server)
+```
+
+---
+
+## ⚡ IV. ĐẶC TẢ HỆ THỐNG RESTFUL API & CƠ CHẾ CHỊU LỖI CSDL
+
+### 1. Danh sách RESTful API Endpoints
+
+Cả hai Node Web Server (Apache và IIS) đều cung cấp cụm API chuẩn RESTful định dạng JSON:
+
+| Phương thức | Endpoint | Chức năng chính | Tham số / Dữ liệu gửi lên |
+| :---: | :--- | :--- | :--- |
+| **`GET`** | `/api/products.php` | Lấy danh sách sản phẩm hiển thị cửa hàng | `?category=...`, `?search=...` |
+| **`POST`** | `/api/products.php` | Thêm, sửa, xóa hoặc cập nhật kho hàng | JSON body: `{ action, product/stock }` |
+| **`GET`** | `/api/orders.php` | Lấy toàn bộ danh sách đơn đặt hàng | Hỗ trợ xem chi tiết sản phẩm, trạng thái |
+| **`POST`** | `/api/orders.php` | Tạo đơn hàng mới từ giỏ hàng hoặc đổi trạng thái | JSON body: `{ customer, phone, items, total, ... }` |
+| **`GET`** | `/api/users.php` | Lấy danh sách tài khoản khách hàng thực tế | Trả về ID, tên, email, ngày tham gia |
+| **`POST`** | `/api/users.php` | Tiếp nhận đăng ký tài khoản mới từ khách | JSON body: `{ name, email, phone, password }` |
+| **`GET`** | `/api/dashboard.php` | Thống kê doanh thu, tổng số đơn, tồn kho | Trả về số liệu cho Dashboard Admin |
+| **`GET`** | `/api/server-info.php` | Kiểm tra Node phục vụ (IP, Node Name, OS) | Phục vụ kiểm thử cân bằng tải luân phiên |
+
+### 2. Cơ chế chịu lỗi CSDL thông minh (Dual-Storage Fallback)
+
+Hệ thống được thiết kế theo tiêu chuẩn mạng có độ sẵn sàng cao (**High Availability**):
+
+```mermaid
+flowchart LR
+    API["API Request (/api/*.php)"] --> DB_Check{"Kết nối MySQL tập trung<br>(VM 4: 100.72.145.103:3306)?"}
+    DB_Check -- "✅ Trực tuyến" --> MySQL[("Central Database (shop_db)")]
+    DB_Check -- "❌ Mất mạng / Bảo trì" --> JSON[("Local JSON Storage (api/data/*.json)")]
+    MySQL --> Response["Phản hồi JSON Data (Source: MySQL)"]
+    JSON --> Response2["Phản hồi JSON Data (Source: Local JSON)"]
+```
+
+- **Chế độ bình thường**: Toàn bộ thao tác đọc/ghi của Apache (VM 2) và IIS (VM 3) đều ghi trực tiếp vào MySQL tập trung tại VM 4.
+- **Chế độ sự cố (Failover)**: Nếu node VM 4 bị tắt hoặc đứt kết nối mạng, các API tự động chuyển trong 0 giây sang đọc/ghi file JSON cục bộ (`api/data/`). Website bán hàng và trang quản trị vẫn vận hành thông suốt, không báo lỗi 500.
+
+---
+
+## 🌐 V. SƠ ĐỒ KIẾN TRÚC MẠNG & KẾT NỐI HỆ THỐNG
 
 ```mermaid
 graph TD
@@ -79,7 +153,7 @@ graph TD
     end
 
     subgraph "HỆ THỐNG DỮ LIỆU & GIÁM SÁT"
-        VM2 -->|Query Port 3306| VM4["🗄️ VM 4: Database & Monitoring (100.72.145.103)<br>TV 5 (Thành Phát): MySQL (shop_db) + GoAccess + ab"]
+        VM2 -->|Query Port 3306| VM4["🗄️ VM 4: Database & Monitoring (100.72.145.103)<br>TV 5: MySQL (shop_db) + GoAccess + ab"]
         VM3 -->|Query Port 3306| VM4
     end
 
@@ -90,17 +164,9 @@ graph TD
     end
 ```
 
-| STT | Thành viên & Định hướng | Máy chủ phụ trách | Nhiệm vụ Giai đoạn 1 (Khung hạ tầng & Web tĩnh) | Nhiệm vụ Giai đoạn 2 (Backend, Database & Cloud) |
-| :---: | :--- | :--- | :--- | :--- |
-| **1** | **Thành viên 1**<br>*(Network & Cloud Admin)* | **VM 1: NGINX**<br>`100.73.121.85` | • Cài đặt NGINX Reverse Proxy trên Ubuntu.<br>• Cấu hình khối upstream cân bằng tải (Round-Robin).<br>• Cấu hình tham số Failover (`max_fails=2`, `fail_timeout=5s`) phát hiện server sập trong 2s.<br>• Thêm header `Cache-Control "no-store"` chặn cache trình duyệt khi test F5. | • Cấu hình Virtual Host chạy tên miền nội bộ `shop-ecommerce.local`.<br>• Tối ưu hiệu năng NGINX: bật nén Gzip nội dung tĩnh.<br>• Hỗ trợ cấu hình tích hợp Cloud kết nối ra ngoài. |
-| **2** | **Thành viên 2**<br>*(Linux Admin & Web Dev)* | **VM 2: Linux Web Server**<br>`100.86.108.58` | • Cài đặt dịch vụ Apache Web Server trên Linux.<br>• Phân quyền sở hữu thư mục `/var/www/html` (`chmod`/`chown`).<br>• Dựng mã nguồn HTML/CSS bán hàng mẫu có banner phân biệt: `"[Server 1: Linux Apache]"`.<br>• Mở port 80/443 trên tường lửa `ufw` / `firewalld`. | • Cài đặt môi trường PHP trên Linux (`php`, `php-mysql`).<br>• Viết mã nguồn PHP kết nối sang Database tập trung (VM 4 - `100.72.145.103`) để hiển thị danh sách sản phẩm.<br>• Trỏ link ảnh sản phẩm sang Cloud S3. |
-| **3** | **Thành viên 3 (Bạn)**<br>*(Windows System Admin)* | **VM 3: Windows IIS**<br>`100.109.69.94` | • Cài đặt vai trò Web Server (IIS) qua Server Manager.<br>• Cấu hình Site Binding (Port 80) và quản trị thư mục `C:\inetpub\wwwroot`.<br>• Đồng bộ mã nguồn HTML/CSS mẫu có banner phân biệt: `"[Server 2: Windows IIS]"`.<br>• Mở port 80 trên Windows Defender Firewall.<br>• Bật tính năng Tailscale Funnel. | • Cài đặt môi trường PHP trên Windows IIS (dùng PHP Manager hoặc FastCGI).<br>• Đưa mã nguồn kết nối Database sang IIS, đảm bảo truy vấn cùng dữ liệu với máy Linux.<br>• Trỏ link ảnh sản phẩm sang Cloud S3. |
-| **4** | **Thành viên 4**<br>*(Bảo mật & FTP Isolation)* | **Cụm FTP Server**<br>*(Trên VM 2 & VM 3)* | • Cài đặt `vsftpd` trên Linux, cấu hình `chroot_local_user=YES` để cô lập dev vào đúng `/var/www/html`.<br>• Cài đặt FTP Service trên IIS (Windows Server), bật chế độ **FTP User Isolation**.<br>• Cấu hình dải Port thụ động (Passive Ports) và mở Port 21 trên Firewall của cả Linux và Windows. | • Thiết lập FTPS (FTP over SSL/TLS) mã hóa dữ liệu truyền tải.<br>• Phân quyền tài khoản dev chi tiết (chống xóa nhầm file hệ thống). |
-| **5** | **Thành viên 5 (Thành Phát)**<br>*(Database, DevOps & Cloud)* | **VM 4: Database & Monitoring**<br>`100.72.145.103` | • Cài đặt MySQL/MariaDB Server, tạo CSDL `shop_db` và bảng dữ liệu sản phẩm `products`.<br>• Cấu hình mở kết nối từ xa (`bind-address = 0.0.0.0`, port 3306), phân quyền cho IP của VM 2 (`100.86.108.58`) và VM 3 (`100.109.69.94`).<br>• Cài đặt công cụ giám sát trực quan (**GoAccess**) để phân tích log NGINX theo thời gian thực.<br>• Dùng công cụ **Apache Benchmark (`ab`)** bắn tải kiểm thử hệ thống. | • Khởi tạo Bucket lưu trữ trên Cloud (AWS S3 / Cloudflare R2 hoặc MinIO).<br>• Đẩy toàn bộ ảnh sản phẩm lên Cloud Bucket.<br>• Cung cấp URL ảnh trên Cloud để TV 2 và TV 3 nhúng vào mã nguồn web. |
-
 ---
 
-## 🛠️ IV. HƯỚNG DẪN CẤU HÌNH CHI TIẾT TỪNG MÁY CHỦ
+## 🛠️ VI. HƯỚNG DẪN CẤU HÌNH CHI TIẾT TỪNG MÁY CHỦ
 
 ### 1. Cấu hình VM 1: NGINX Reverse Proxy & Load Balancer (`100.73.121.85`)
 *Người phụ trách: Thành viên 1*
@@ -195,7 +261,7 @@ graph TD
 ---
 
 ### 3. Cấu hình VM 3: Windows Server IIS (`100.109.69.94`)
-*Người phụ trách: Thành viên 3 (Bạn)*
+*Người phụ trách: Thành viên 3*
 
 1. **Cài đặt vai trò IIS qua Server Manager**:
    * Mở **Server Manager** ➔ **Add roles and features** ➔ Chọn **Web Server (IIS)**.
@@ -259,7 +325,7 @@ graph TD
 ---
 
 ### 5. Cấu hình VM 4: Database & Monitoring (`100.72.145.103`)
-*Người phụ trách: Thành viên 5 (Thành Phát)*
+*Người phụ trách: Thành viên 5*
 
 1. **Cài đặt MariaDB / MySQL Server**:
    ```bash
@@ -277,7 +343,7 @@ graph TD
      ```bash
      sudo mysql < database.sql
      ```
-     *(Lệnh này sẽ tự động tạo bảng `products`, `orders` và cấp quyền kết nối từ xa cho dải IP Tailscale `100.%` với user `shop_user` / password `Shop@123456`).*
+     *(Lệnh này sẽ tự động tạo bảng `products`, `orders`, `users` và cấp quyền kết nối từ xa cho dải IP Tailscale `100.%` với user `shop_user` / password `Shop@123456`).*
 4. **Cài đặt GoAccess giám sát thời gian thực log NGINX**:
    ```bash
    sudo apt install goaccess -y
@@ -291,14 +357,14 @@ graph TD
 
 ---
 
-## 🎯 V. KỊCH BẢN BÁO CÁO & DEMO CHO HỘI ĐỒNG / GIẢNG VIÊN
+## 🎯 VII. KỊCH BẢN BÁO CÁO & DEMO CHO HỘI ĐỒNG / GIẢNG VIÊN
 
 ### Kịch bản 1: Cấu hình DNS phân giải tên miền nội bộ
 1. Trên máy thật hoặc máy client trong mạng Tailscale, mở file hosts (`C:\Windows\System32\drivers\etc\hosts` trên Windows hoặc `/etc/hosts` trên Linux):
    ```text
    100.73.121.85   shop-ecommerce.local
    ```
-2. Mở trình duyệt truy cập: **`http://shop-ecommerce.local`**. Trang web Techno Store sẽ hiển thị mượt mà.
+2. Mở trình duyệt truy cập: **`http://shop-ecommerce.local`**. Trang web Phone Store sẽ hiển thị mượt mà.
 
 ### Kịch bản 2: Demo Cân bằng tải luân phiên (Round-Robin Load Balancing)
 1. Truy cập vào IP NGINX `http://100.73.121.85/`.
@@ -329,20 +395,23 @@ graph TD
 
 ---
 
-## 💻 VI. HƯỚNG DẪN CHẠY THỬ TRỰC TIẾP TRÊN VS CODE (LOCAL DEV)
+## 💻 VIII. HƯỚNG DẪN CHẠY THỬ TRỰC TIẾP TRÊN VS CODE (LOCAL DEV)
 
-Nếu bạn đang code hoặc kiểm tra trên máy tính cá nhân bằng VS Code:
-1. Mở Terminal tại thư mục dự án (`Ctrl + ~`).
-2. Gõ lệnh:
+Trường hợp kiểm thử hoặc phát triển cục bộ trên máy tính cá nhân bằng VS Code mà chưa kết nối cụm máy ảo:
+1. Yêu cầu: Đã cài đặt **Node.js** (phiên bản 18 trở lên).
+2. Mở Terminal tại thư mục dự án (`Ctrl + ~`).
+3. Gõ lệnh:
    ```bash
    npm start
    ```
-3. Trình duyệt tự động mở tại **`http://localhost:3000`** với đầy đủ mock API và giao diện hoàn chỉnh.
-4. Bấm `Ctrl + C` để dừng server.
+4. Hệ thống khởi chạy `server.js` tích hợp sẵn bộ giả lập Full-stack Mock API và mở trình duyệt tại:
+   * **Cửa hàng khách hàng**: `http://localhost:3000`
+   * **Bảng điều khiển Quản trị**: `http://localhost:3000/admin`
+5. Bấm `Ctrl + C` để dừng server.
 
 ---
 
-## 📚 VII. TÀI LIỆU THAM KHẢO (REFERENCES)
+## 📚 IX. TÀI LIỆU THAM KHẢO (REFERENCES)
 
 1. **NGINX Reverse Proxy & HTTP Load Balancing**:
    * [NGINX Documentation: Using NGINX as an HTTP Load Balancer](https://docs.nginx.com/nginx/admin-guide/load-balancer/http-load-balancer/)

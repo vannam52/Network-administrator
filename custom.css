@@ -5,3 +5,29 @@ html {
 div[class*="fixed bottom-4 left-1/2"] {
   display: none !important;
 }
+
+/* Đảm bảo Footer luôn cố định ở đáy, không bị nhảy lên nhảy xuống khi chuyển tab */
+html, body {
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#root > div.min-h-screen {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 100vh !important;
+}
+
+footer {
+  margin-top: auto !important;
+}
+
+/* Ổn định chiều cao tối thiểu cho trang cá nhân / đơn hàng để tránh giật lag khi chuyển tab */
+.mx-auto.max-w-6xl {
+  min-height: 560px;
+}

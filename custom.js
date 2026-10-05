@@ -133,14 +133,14 @@
     }
   }
 
-  // 5. Khắc phục sự kiện cho Menu Header (Điện thoại, Máy tính bảng, Phụ kiện)
+  // 5. Khắc phục sự kiện cho Menu Header (iPhone Store, Các dòng iPhone)
   function initHeaderNavigation() {
     document.addEventListener('click', (e) => {
       const target = e.target.closest('header nav button');
       if (!target) return;
 
       const categoryName = target.textContent.trim();
-      const validCategories = ['Điện thoại', 'Máy tính bảng', 'Phụ kiện'];
+      const validCategories = ['iPhone Store', 'iPhone 17 Series', 'iPhone 16 Series', 'iPhone 15 Series', 'iPhone 14 Series', 'iPhone 11 - 13'];
 
       if (validCategories.includes(categoryName)) {
         setTimeout(() => {
@@ -148,8 +148,9 @@
           const listSection = document.getElementById('list');
           if (listSection) {
             const categoryButtons = listSection.querySelectorAll('button');
+            const targetPill = categoryName === 'iPhone Store' ? 'Tất cả' : categoryName;
             for (const btn of categoryButtons) {
-              if (btn.textContent.trim() === categoryName) {
+              if (btn.textContent.trim() === targetPill) {
                 btn.click();
                 listSection.scrollIntoView({ behavior: 'smooth' });
                 break;

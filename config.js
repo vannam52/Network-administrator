@@ -1,6 +1,6 @@
 window.PROJECT_CONFIG = {
   // Tiêu đề trang
-  siteTitle: "Techno Store - Hệ thống Hosting E-commerce Đa Nền Tảng",
+  siteTitle: "Phone Store - Hệ thống Hosting E-commerce Đa Nền Tảng",
 
   // Bật/tắt thanh banner thông tin đề tài nổi ở góc phải
   showProjectBadge: false,

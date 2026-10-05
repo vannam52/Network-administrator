@@ -1,0 +1,11 @@
+[
+  {
+    "id": "KH001",
+    "name": "Trần Văn Nam",
+    "email": "vannam@gmail.com",
+    "phone": "0987654321",
+    "joined": "5/10/2026",
+    "orders": 0,
+    "locked": false
+  }
+]
