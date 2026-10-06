@@ -1,17 +1,18 @@
 [
   {
-    "id": "DH029717",
-    "customer": "Khách hàng Demo (Đề tài 10)",
-    "phone": "0901234567",
-    "address": "Mô phỏng đặt hàng từ giao diện",
-    "date": "5/10/2026",
-    "total": 34990000,
+    "id": "DH796921",
+    "customer": "Văn Nam",
+    "phone": "0901 234 567",
+    "address": "45 Lê Lợi, P. Bến Nghé, Quận 1, TP.HCM",
+    "date": "6/10/2026",
+    "total": 24890000,
     "status": "Mới đặt",
-    "pay": "Tiền mặt",
+    "pay": "Chuyển khoản",
     "items": [
       {
-        "id": 1,
-        "name": "Sản phẩm demo",
+        "id": "IP0006",
+        "name": "iPhone 16 Pro 128GB | Chính hãng",
+        "price": 24890000,
         "qty": 1
       }
     ],
@@ -37,24 +38,6 @@
     "processedBy": "Local Dev Server (VS Code)"
   },
   {
-    "id": "DH594767",
-    "customer": "Khách hàng Demo (Đề tài 10)",
-    "phone": "0901234567",
-    "address": "Mô phỏng đặt hàng từ giao diện",
-    "date": "5/10/2026",
-    "total": 34990000,
-    "status": "Mới đặt",
-    "pay": "Tiền mặt",
-    "items": [
-      {
-        "id": 1,
-        "name": "Sản phẩm demo",
-        "qty": 1
-      }
-    ],
-    "processedBy": "Local Dev Server (VS Code)"
-  },
-  {
     "id": "DH147774",
     "customer": "Tran Van Nam",
     "phone": "0987654321",
@@ -72,80 +55,5 @@
       }
     ],
     "processedBy": "Local Dev Server (VS Code)"
-  },
-  {
-    "id": "DH547143",
-    "customer": "Nguyễn Minh Anh",
-    "phone": "0901 234 567",
-    "address": "45 Lê Lợi, P. Bến Nghé, Quận 1, TP.HCM",
-    "date": "5/10/2026",
-    "total": 24990000,
-    "status": "Mới đặt",
-    "pay": "Tiền mặt",
-    "items": [
-      {
-        "id": "IP0003",
-        "name": "iPhone 17 256GB | Chính hãng",
-        "price": 24990000,
-        "qty": 1
-      }
-    ],
-    "processedBy": "Local Dev Server (VS Code)"
-  },
-  {
-    "id": "DH617084",
-    "customer": "Nguyễn Minh Anh",
-    "phone": "0901 234 567",
-    "address": "45 Lê Lợi, P. Bến Nghé, Quận 1, TP.HCM",
-    "date": "5/10/2026",
-    "total": 37990000,
-    "status": "Mới đặt",
-    "pay": "Tiền mặt",
-    "items": [
-      {
-        "id": "IP0001",
-        "name": "iPhone 17 Pro Max 256GB | Chính hãng",
-        "price": 37990000,
-        "qty": 1
-      }
-    ],
-    "processedBy": "Local Dev Server (VS Code)"
-  },
-  {
-    "id": "DH475855",
-    "customer": "Nguyễn Minh Anh",
-    "phone": "0901 234 567",
-    "address": "45 Lê Lợi, P. Bến Nghé, Quận 1, TP.HCM",
-    "date": "5/10/2026",
-    "total": 37990000,
-    "status": "Mới đặt",
-    "pay": "Tiền mặt",
-    "items": [
-      {
-        "id": "IP0001",
-        "name": "iPhone 17 Pro Max 256GB | Chính hãng",
-        "price": 37990000,
-        "qty": 1
-      }
-    ],
-    "processedBy": "Local Dev Server (VS Code)"
-  },
-  {
-    "id": "DH24101",
-    "customer": "Nguyễn Minh Anh",
-    "phone": "0901 234 567",
-    "address": "45 Lê Lợi, P. Bến Nghé, Quận 1, TP.HCM",
-    "date": "02/10/2026",
-    "total": 34990000,
-    "status": "Mới đặt",
-    "pay": "Chuyển khoản",
-    "items": [
-      {
-        "id": 1,
-        "name": "iPhone 16 Pro Max 256GB",
-        "price": 34990000,
-        "qty": 1
-      }
-    ]
   }
 ]

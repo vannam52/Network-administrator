@@ -77,6 +77,22 @@ function adminApp() {
             } finally {
                 this.loading = false;
             }
+        },
+
+        async deleteOrder(id) {
+            if (!confirm(`Bạn có chắc chắn muốn xóa đơn hàng #${id}?`)) return;
+            this.loading = true;
+            try {
+                const res = await fetch(`/api/orders.php?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+                if (res.ok) {
+                    await this.fetchData();
+                }
+            } catch (err) {
+                console.error('Lỗi khi xóa đơn hàng:', err);
+            } finally {
+                this.loading = false;
+            }
         }
     }
 }
+

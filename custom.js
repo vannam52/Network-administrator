@@ -165,32 +165,11 @@
   // 6. Tự động đồng bộ giỏ hàng với LocalStorage
   function initCartPersistence() {
     try {
-      const savedCart = localStorage.getItem('techno_store_cart');
+      const savedCart = localStorage.getItem('phone_store_cart') || localStorage.getItem('techno_store_cart');
       if (savedCart) {
-        // Có thể lưu giữ giỏ hàng
+        // Giữ giỏ hàng hợp lệ
       }
-      // Lắng nghe khi có hành động đặt hàng thành công để gửi về API orders.php
-      document.addEventListener('click', (e) => {
-        const btn = e.target.closest('button');
-        if (!btn) return;
-        if (btn.textContent.includes('Xác nhận đặt hàng')) {
-          // Gửi đơn hàng về Backend file-based
-          fetch('/api/orders.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              customer: 'Khách hàng Demo (Đề tài 10)',
-              phone: '0901234567',
-              address: 'Mô phỏng đặt hàng từ giao diện',
-              total: 34990000,
-              items: [{ id: 1, name: 'Sản phẩm demo', qty: 1 }]
-            })
-          }).then(res => res.json()).then(data => {
-            console.log('✅ Đơn hàng đã được lưu vào Backend (api/data/orders.json):', data);
-          }).catch(err => console.log('Lưu đơn hàng:', err));
-        }
-      });
-    } catch (err) {}
+    } catch (err) { }
   }
 
   // 7. Thêm liên kết Cổng quản trị vào form Đăng nhập

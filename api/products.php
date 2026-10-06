@@ -35,6 +35,28 @@ if ($method === 'GET') {
             $products = [];
             foreach ($rawProducts as $p) {
                 $imgUrl = $p['img'] ?? $p['image_url'] ?? $p['image'] ?? '';
+                $name = $p['name'] ?? '';
+                if (empty($imgUrl)) {
+                    if (stripos($name, '17') !== false || stripos($name, 'Air') !== false) {
+                        $imgUrl = 'img/iphone17.webp';
+                    } elseif (stripos($name, '16 Pro') !== false) {
+                        $imgUrl = 'img/iphone-16-pro-max.png';
+                    } elseif (stripos($name, '16') !== false) {
+                        $imgUrl = 'img/iphone-16-den-128.webp';
+                    } elseif (stripos($name, '15 Pro') !== false) {
+                        $imgUrl = 'img/iphone15-pro-max-titan-xanh.webp';
+                    } elseif (stripos($name, '15') !== false) {
+                        $imgUrl = 'img/iphone15-hong.webp';
+                    } elseif (stripos($name, '14 Pro') !== false) {
+                        $imgUrl = 'img/iphone-14-pro-max.png';
+                    } elseif (stripos($name, '14') !== false) {
+                        $imgUrl = 'img/iphone14.webp';
+                    } elseif (stripos($name, '13') !== false) {
+                        $imgUrl = 'img/iphone13.webp';
+                    } else {
+                        $imgUrl = 'img/iphone-11.webp';
+                    }
+                }
                 $p['code'] = $p['code'] ?? ('SP0' . str_pad($p['id'] ?? 1, 2, '0', STR_PAD_LEFT));
                 $p['image_url'] = $imgUrl;
                 $p['image'] = $imgUrl;

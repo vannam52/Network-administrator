@@ -2,7 +2,7 @@
 if (ob_get_length()) ob_clean();
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -113,3 +113,31 @@ if ($method === 'POST') {
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     exit;
 }
+
+if ($method === 'DELETE') {
+    $orderId = $_GET['id'] ?? '';
+    if (!$orderId) {
+        $rawInput = file_get_contents('php://input');
+        $input = json_decode($rawInput, true);
+        $orderId = $input['id'] ?? '';
+    }
+
+    if ($orderId) {
+        if ($pdo !== null) {
+            try {
+                $stmt = $pdo->prepare("DELETE FROM orders WHERE id = ?");
+                $stmt->execute([$orderId]);
+            } catch (Throwable $e) {}
+        }
+        $content = file_get_contents($dataFile);
+        $orders = json_decode($content, true) ?: [];
+        $orders = array_values(array_filter($orders, function($o) use ($orderId) {
+            return $o['id'] !== $orderId;
+        }));
+        file_put_contents($dataFile, json_encode($orders, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    }
+
+    echo json_encode(['status' => 'success', 'message' => "Đã xóa đơn hàng {$orderId}"], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+

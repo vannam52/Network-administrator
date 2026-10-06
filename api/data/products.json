@@ -18,11 +18,11 @@
       "#1e293b",
       "#334155"
     ],
-    "stock": 6,
+    "stock": 5,
     "rating": 5,
     "isNew": true,
     "imported": 50,
-    "sold": 4,
+    "sold": 5,
     "img": "img/iphone17.webp"
   },
   {
@@ -148,11 +148,11 @@
       "#1e293b",
       "#334155"
     ],
-    "stock": 10,
+    "stock": 9,
     "rating": 5,
     "isNew": false,
     "imported": 50,
-    "sold": 0,
+    "sold": 1,
     "img": "img/iphone-16-den-128.webp"
   },
   {

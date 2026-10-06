@@ -145,6 +145,7 @@
                                 <th class="px-5 py-3">Ngày đặt</th>
                                 <th class="px-5 py-3 text-right">Tổng tiền</th>
                                 <th class="px-5 py-3 text-center">Trạng thái</th>
+                                <th class="px-5 py-3 text-right">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -156,6 +157,9 @@
                                     <td class="px-5 py-4 text-right font-medium" x-text="formatMoney(o.total)"></td>
                                     <td class="px-5 py-4 text-center">
                                         <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700" x-text="o.status"></span>
+                                    </td>
+                                    <td class="px-5 py-4 text-right">
+                                        <button @click="deleteOrder(o.id)" class="px-2.5 py-1 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 transition">Xóa</button>
                                     </td>
                                 </tr>
                             </template>

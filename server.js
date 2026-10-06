@@ -160,6 +160,23 @@ const server = http.createServer((req, res) => {
         }
       });
       return;
+    } else if (req.method === 'DELETE') {
+      const qIndex = req.url.indexOf('?');
+      let orderId = '';
+      if (qIndex !== -1) {
+        const params = new URLSearchParams(req.url.slice(qIndex + 1));
+        orderId = params.get('id') || '';
+      }
+      if (orderId && fs.existsSync(ordersFile)) {
+        try {
+          let orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8') || '[]');
+          orders = orders.filter(o => o.id !== orderId && o.id !== ('#' + orderId));
+          fs.writeFileSync(ordersFile, JSON.stringify(orders, null, 2), 'utf8');
+        } catch (e) {}
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ status: 'success', message: 'Đã xóa đơn hàng' }));
+      return;
     }
   }
 
@@ -311,7 +328,7 @@ function startServer(port) {
   server.listen(port, () => {
     const url = `http://localhost:${port}`;
     console.log('='.repeat(55));
-    console.log(`  🛒 TECHNO STORE - LOCAL DEV SERVER`);
+    console.log(`  🛒 PHONE STORE - LOCAL DEV SERVER`);
     console.log(`  🔗 Địa chỉ: ${url}`);
     console.log(`  📁 Thư mục: ${ROOT_DIR}`);
     console.log(`  🔌 API Endpoint: ${url}/api/server-info`);
