@@ -36,7 +36,7 @@
   * [Kịch bản 4: Demo Cô lập người dùng qua FTP](#kịch-bản-4-demo-cô-lập-người-dùng-qua-ftp-ftp-user-isolation)
   * [Kịch bản 5: Demo Giám sát GoAccess & Bắn tải Apache Benchmark](#kịch-bản-5-demo-giám-sát-thời-gian-thực--bắn-tải-devops)
 * [💻 VIII. Hướng dẫn chạy thử trực tiếp trên VS Code (Local Dev)](#-viii-hướng-dẫn-chạy-thử-trực-tiếp-trên-vs-code-local-dev)
-* [📚 IX. Tài liệu tham khảo (References)](#-ix-tài-liệu-tham-khảo-references)
+* [📚 IX. Tài liệu tham khảo & Trích dẫn Nguồn mở (References)](#-ix-tài-liệu-tham-khảo--trích-dẫn-nguồn-mở-references)
 
 ---
 
@@ -411,32 +411,8 @@ Trường hợp kiểm thử hoặc phát triển cục bộ trên máy tính c�
 
 ---
 
-## 📚 IX. TÀI LIỆU THAM KHẢO (REFERENCES)
+## 📚 IX. Tài liệu tham khảo & Trích dẫn Nguồn mở (References)
 
-1. **NGINX Reverse Proxy & HTTP Load Balancing**:
-   * [NGINX Documentation: Using NGINX as an HTTP Load Balancer](https://docs.nginx.com/nginx/admin-guide/load-balancer/http-load-balancer/)
-   * [NGINX Reverse Proxy Official Guide](https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/)
-   * [NGINX Module ngx_http_upstream_module Reference](https://nginx.org/en/docs/http/ngx_http_upstream_module.html)
+Đồ án có tham khảo mã nguồn, tài liệu và sử dụng các thư viện mã nguồn mở sau đây:
 
-2. **Microsoft Internet Information Services (IIS)**:
-   * [Microsoft Learn: URL Rewrite Module 2.0 / 2.1 Configuration Reference](https://learn.microsoft.com/en-us/iis/extensions/url-rewrite-module/url-rewrite-module-configuration-reference)
-   * [Microsoft Learn: Configuring PHP on IIS using FastCGI](https://learn.microsoft.com/en-us/iis/application-frameworks/install-and-configure-php-on-iis/configure-the-fastcgi-extension-for-iis)
-   * [Microsoft Learn: Configuring FTP User Isolation in IIS](https://learn.microsoft.com/en-us/iis/configuration/system.applicationHost/sites/siteDefaults/ftpServer/userIsolation)
-
-3. **Apache HTTP Server**:
-   * [Apache HTTP Server Documentation: Module mod_rewrite](https://httpd.apache.org/docs/2.4/mod/mod_rewrite.html)
-   * [Apache Tutorial: .htaccess files and Security Configuration](https://httpd.apache.org/docs/2.4/howto/htaccess.html)
-
-4. **FTP Server Security & User Isolation**:
-   * [vsftpd Official Documentation & Configuration Manual](https://security.appspot.com/vsftpd/vsftpd_conf.html)
-   * [RFC 959: File Transfer Protocol (FTP) Specification](https://datatracker.ietf.org/doc/html/rfc959)
-   * [RFC 4217: Securing FTP with TLS (FTPS)](https://datatracker.ietf.org/doc/html/rfc4217)
-
-5. **Mạng lưới VPN & Liên kết máy ảo**:
-   * [Tailscale Official Documentation: Tailscale Mesh Architecture & VPN](https://tailscale.com/kb)
-   * [Tailscale Funnel Documentation: Expose local servers to the Internet](https://tailscale.com/kb/1223/funnel)
-
-6. **Giám sát & Kiểm thử hiệu năng (DevOps & Testing)**:
-   * [GoAccess: Official Real-Time Web Log Analyzer Documentation](https://goaccess.io/man)
-   * [Apache Benchmark (ab): Official Apache HTTP Server Benchmarking Tool](https://httpd.apache.org/docs/2.4/programs/ab.html)
-   * [MariaDB / MySQL Knowledge Base: Configuring Remote Connections and User Grants](https://mariadb.com/kb/en/configuring-mariadb-for-remote-client-access/)
+**[1] NGINX**: Nền tảng Reverse Proxy & HTTP Load Balancing phân tải truy cập. Available: https://docs.nginx.com/nginx/admin-guide/load-balancer/http-load-balancer/ **[2] Microsoft IIS**: Máy chủ Web Server trên Windows Server hỗ trợ FastCGI, URL Rewrite và FTP User Isolation. Available: https://learn.microsoft.com/en-us/iis **[3] Apache HTTP Server**: Máy chủ Web Server mã nguồn mở trên Linux hỗ trợ điều hướng `.htaccess` và `mod_rewrite`. Available: https://httpd.apache.org **[4] Tailscale**: Mạng riêng ảo VPN Mesh kết nối an toàn đa nền tảng giữa các cụm máy ảo và Internet Funnel. Available: https://tailscale.com/kb **[5] vsftpd**: Dịch vụ máy chủ FTP bảo mật trên Linux với tính năng chroot cô lập thư mục người dùng (User Isolation). Available: https://security.appspot.com/vsftpd/vsftpd_conf.html **[6] MariaDB / MySQL**: Hệ quản trị cơ sở dữ liệu quan hệ lưu trữ tập trung dữ liệu sản phẩm, đơn hàng và phân quyền từ xa. Available: https://mariadb.org **[7] GoAccess**: Bộ công cụ phân tích và trực quan hóa nhật ký Web Log thời gian thực. Available: https://goaccess.io **[8] Apache Benchmark (ab)**: Công cụ kiểm thử tải và đánh giá năng lực chịu tải của máy chủ Web Server. Available: https://httpd.apache.org/docs/2.4/programs/ab.html **[9] PHP**: Ngôn ngữ kịch bản phía máy chủ xử lý cụm RESTful API kết nối PDO MySQL và cơ chế dự phòng JSON. Available: https://www.php.net **[10] React SPA**: Thư viện giao diện người dùng Single Page Application tối ưu hóa cho cửa hàng thương mại điện tử. Available: https://react.dev **[11] RFC 959 & RFC 4217**: Đặc tả kỹ thuật tiêu chuẩn giao thức truyền tệp FTP và bảo mật truyền tải qua TLS (FTPS). Available: https://datatracker.ietf.org/doc/html/rfc959
