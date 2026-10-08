@@ -73,7 +73,7 @@
     if (serverName.includes('IIS')) serverName = ' IIS';
     else if (serverName.includes('APACHE')) serverName = ' APACHE';
     else if (serverName.includes('NGINX')) serverName = ' NGINX';
-    else serverName = ''; 
+    else serverName = '';
 
     banner.textContent = `[BACKEND: ${osName}${serverName} - ${data.node.serverIp}]`;
   }
@@ -200,8 +200,18 @@
     } catch (err) { }
   }
 
-  // 7. Thêm liên kết Cổng quản trị vào form Đăng nhập
+  // 7. Thêm liên kết Cổng quản trị vào form Đăng nhập & Ép tải lại trang Admin
   function initAdminLoginEntry() {
+    // Chặn React Router khi click "Cổng quản trị" ở footer
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (btn && btn.textContent.includes('Cổng quản trị')) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.location.href = '/admin'; // Ép tải trang thực tế từ Server
+        }
+    }, true);
+
     setInterval(() => {
       const loginForm = document.querySelector('form.max-w-sm');
       if (loginForm && !document.getElementById('admin-login-entry')) {
@@ -218,14 +228,7 @@
         loginForm.appendChild(linkDiv);
 
         document.getElementById('btn-switch-admin')?.addEventListener('click', () => {
-          const footerButtons = document.querySelectorAll('footer button');
-          for (const btn of footerButtons) {
-            if (btn.textContent.includes('Cổng quản trị')) {
-              btn.click();
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-              break;
-            }
-          }
+           window.location.href = '/admin'; // Ép tải trang từ Server
         });
       }
     }, 500);
@@ -238,5 +241,224 @@
     initHeaderNavigation();
     initCartPersistence();
     initAdminLoginEntry();
+    hideSpecificButtonsInstantly();
+    fixLoginVulnerability();
   });
+
+  // 8. Ẩn ngay lập tức các nút gây lỗi (VD: Thêm danh mục) mà không bị độ trễ
+  function hideSpecificButtonsInstantly() {
+    // Sử dụng MutationObserver để theo dõi sự thay đổi của DOM, ẩn ngay khi React vừa render
+    const observer = new MutationObserver(() => {
+      if (window.location.pathname.includes('/admin')) {
+        const buttons = document.querySelectorAll('button, a, div[role="button"], li');
+        buttons.forEach(btn => {
+          const text = btn.textContent.trim().toLowerCase();
+          // CHỈ ẨN đúng nút "Thêm danh mục" và "Tạo phiếu nhập", giữ nguyên các lựa chọn khác
+          if (text === 'thêm danh mục' || text === 'tạo phiếu nhập') {
+            if (btn.tagName === 'A' || btn.tagName === 'BUTTON' || btn.tagName === 'LI') {
+              btn.style.display = 'none';
+            }
+          }
+        });
+      }
+    });
+
+    // Theo dõi toàn bộ body liên tục
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  // 9. Vá lỗ hổng đăng nhập (Nhập bừa mật khẩu vẫn vào được)
+  // 9. Vá lỗ hổng đăng nhập (Nhập bừa mật khẩu vẫn vào được)
+  function fixLoginVulnerability() {
+    // Viết một hàm xử lý chung cho cả click nút Đăng nhập và ấn Enter
+    const handleLoginAttempt = async (e, form, btn) => {
+      const passInput = form.querySelector('input[type="password"]');
+      const phoneInput = form.querySelector('input[type="text"], input[type="email"]');
+
+      if (passInput && phoneInput && passInput.value) {
+        // CHẶN NGAY LẬP TỨC sự kiện gốc của trình duyệt và React
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
+        const phone = phoneInput.value.trim();
+        const password = passInput.value.trim();
+
+        if (!phone || !password) {
+          alert('Vui lòng nhập đầy đủ thông tin!');
+          return;
+        }
+
+        const originalText = btn ? btn.textContent : 'Đăng nhập';
+        if (btn) {
+          btn.textContent = 'Đang kiểm tra...';
+          btn.disabled = true;
+        }
+
+        try {
+          // Gọi API kiểm tra mật khẩu thực sự
+          const res = await fetch('/api/auth.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, password })
+          });
+
+          if (!res.ok) throw new Error('API không tồn tại');
+
+          const data = await res.json();
+
+          if (data.status === 'success') {
+            localStorage.setItem('phone_store_user', JSON.stringify(data.user));
+            alert('Đăng nhập thành công!');
+            window.location.href = '/';
+          } else {
+            alert('❌ ' + (data.message || 'Sai thông tin tài khoản hoặc mật khẩu!'));
+            if (btn) {
+              btn.textContent = originalText;
+              btn.disabled = false;
+            }
+          }
+        } catch (err) {
+          alert('Vui lòng test chức năng Đăng nhập trên máy ảo Windows/Linux (Truy cập bằng IIS/Apache). Bản Node.js đang không hỗ trợ bảo mật mật khẩu!');
+          if (btn) {
+            btn.textContent = originalText;
+            btn.disabled = false;
+          }
+        }
+      }
+    };
+
+    // Bắt sự kiện CLICK vào nút Đăng nhập và Thêm Sản Phẩm
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      
+      // XỬ LÝ ĐĂNG NHẬP
+      if (btn.textContent.toLowerCase().includes('đăng nhập')) {
+        const form = btn.closest('form') || btn.closest('.flex-col') || document.querySelector('form');
+        if (form) handleLoginAttempt(e, form, btn);
+        return;
+      }
+
+      // XỬ LÝ THÊM SẢN PHẨM (Nút bị liệt của React)
+      if (btn.textContent.toLowerCase().includes('thêm sản phẩm')) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Xóa modal cũ nếu có
+        const oldModal = document.getElementById('custom-add-product-modal');
+        if (oldModal) oldModal.remove();
+
+        // Tạo giao diện Modal nổi giữa màn hình
+        const modal = document.createElement('div');
+        modal.id = 'custom-add-product-modal';
+        modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:999999; backdrop-filter: blur(4px);';
+        
+        modal.innerHTML = `
+            <div style="background:#fff; width:450px; border-radius:12px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); overflow:hidden;">
+                <div style="padding:16px 24px; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; background:#f9fafb;">
+                    <h3 style="margin:0; font-size:18px; font-weight:600; color:#111827;">Thêm sản phẩm mới</h3>
+                    <button id="close-modal-btn" style="background:none; border:none; font-size:24px; cursor:pointer; color:#6b7280; line-height:1;">&times;</button>
+                </div>
+                <div style="padding:24px; display:flex; flex-direction:column; gap:16px;">
+                    <div>
+                        <label style="display:block; margin-bottom:6px; font-size:14px; font-weight:500; color:#374151;">Tên sản phẩm</label>
+                        <input id="modal-p-name" type="text" placeholder="VD: iPhone 16 Pro Max 256GB" style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; outline:none; box-sizing:border-box;">
+                    </div>
+                    <div style="display:flex; gap:16px;">
+                        <div style="flex:1;">
+                            <label style="display:block; margin-bottom:6px; font-size:14px; font-weight:500; color:#374151;">Giá bán (VNĐ)</label>
+                            <input id="modal-p-price" type="number" placeholder="VD: 34990000" style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; outline:none; box-sizing:border-box;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block; margin-bottom:6px; font-size:14px; font-weight:500; color:#374151;">Tồn kho</label>
+                            <input id="modal-p-stock" type="number" placeholder="10" value="10" style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; outline:none; box-sizing:border-box;">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:6px; font-size:14px; font-weight:500; color:#374151;">Danh mục</label>
+                        <select id="modal-p-cat" style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; outline:none; box-sizing:border-box; background:#fff;">
+                            <option value="iPhone 17 Series">iPhone 17 Series</option>
+                            <option value="iPhone 16 Series">iPhone 16 Series</option>
+                            <option value="iPhone 15 Series">iPhone 15 Series</option>
+                            <option value="iPhone 14 Series">iPhone 14 Series</option>
+                            <option value="Khác">Khác</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="padding:16px 24px; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:12px; background:#f9fafb;">
+                    <button id="cancel-modal-btn" style="padding:8px 16px; border:none; background:#e5e7eb; color:#374151; border-radius:8px; font-weight:500; cursor:pointer;">Hủy</button>
+                    <button id="save-modal-btn" style="padding:8px 16px; border:none; background:#2563eb; color:#fff; border-radius:8px; font-weight:500; cursor:pointer;">Lưu Sản Phẩm</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        // Xử lý đóng modal
+        const closeModal = () => modal.remove();
+        document.getElementById('close-modal-btn').onclick = closeModal;
+        document.getElementById('cancel-modal-btn').onclick = closeModal;
+        
+        // Bấm ra ngoài modal để đóng
+        modal.addEventListener('click', (ev) => {
+            if (ev.target === modal) closeModal();
+        });
+
+        // Xử lý lưu
+        document.getElementById('save-modal-btn').onclick = async function() {
+            const name = document.getElementById('modal-p-name').value.trim();
+            const price = document.getElementById('modal-p-price').value.trim();
+            const stock = document.getElementById('modal-p-stock').value.trim();
+            const cat = document.getElementById('modal-p-cat').value;
+
+            if (!name || !price) {
+                alert('Vui lòng nhập Tên sản phẩm và Giá bán!');
+                return;
+            }
+
+            this.textContent = 'Đang lưu...';
+            this.disabled = true;
+
+            const code = 'SP' + Math.floor(Math.random() * 10000);
+            
+            try {
+                // Tự động gọi API chung (hỗ trợ cả Node.js và PHP)
+                const apiUrl = window.location.port === '3000' ? '/api/products' : '/api/products.php';
+                const res = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        price: price,
+                        stock: stock,
+                        code: code,
+                        category: cat,
+                        img: 'https://cdn.hoanghamobile.com/i/productlist/dsp/Uploads/2023/09/13/iphone-15-pro-max-natural-titanium-pure-back-iphone-15-pro-max-natural-titanium-pure-front-2up-screen-usen.png'
+                    })
+                });
+                
+                if (res.ok) {
+                    alert('Thêm sản phẩm thành công!');
+                    window.location.reload(); // Tải lại trang để React cập nhật danh sách
+                } else {
+                    alert('Có lỗi xảy ra khi thêm sản phẩm!');
+                }
+            } catch (err) {
+                alert('Lỗi kết nối đến Server!');
+            }
+            closeModal();
+        };
+      }
+    }, true);
+
+    // Bắt sự kiện SUBMIT form (Khi ấn Enter)
+    document.addEventListener('submit', (e) => {
+      const form = e.target;
+      const btn = form.querySelector('button[type="submit"]') || form.querySelector('button');
+      if (btn && btn.textContent.toLowerCase().includes('đăng nhập')) {
+        handleLoginAttempt(e, form, btn);
+      }
+    }, true);
+
+  }
 })();

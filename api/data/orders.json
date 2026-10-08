@@ -1,5 +1,43 @@
 [
   {
+    "id": "DH697398",
+    "customer": "phu",
+    "phone": "0901 234 567",
+    "address": "45 Lê Lợi, P. Bến Nghé, Quận 1, TP.HCM",
+    "date": "8/10/2026",
+    "total": 19990000,
+    "status": "Mới đặt",
+    "pay": "Tiền mặt",
+    "items": [
+      {
+        "id": "IP0024",
+        "name": "iPhone 12 256GB | Chính hãng",
+        "price": 19990000,
+        "qty": 1
+      }
+    ],
+    "processedBy": "Local Dev Server (VS Code)"
+  },
+  {
+    "id": "DH112926",
+    "customer": "phu",
+    "phone": "0901 234 567",
+    "address": "45 Lê Lợi, P. Bến Nghé, Quận 1, TP.HCM",
+    "date": "8/10/2026",
+    "total": 37990000,
+    "status": "Mới đặt",
+    "pay": "Tiền mặt",
+    "items": [
+      {
+        "id": "IP0001",
+        "name": "iPhone 17 Pro Max 256GB | Chính hãng",
+        "price": 37990000,
+        "qty": 1
+      }
+    ],
+    "processedBy": "Local Dev Server (VS Code)"
+  },
+  {
     "id": "DH796921",
     "customer": "Văn Nam",
     "phone": "0901 234 567",

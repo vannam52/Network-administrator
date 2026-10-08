@@ -29,9 +29,20 @@ if ($method === 'GET') {
     $dataSource = 'Local JSON File';
 
     if ($pdo !== null) {
+        // Cố gắng tự động vá Database: Thêm cột items nếu chưa có
         try {
-            $stmt = $pdo->query("SELECT id, customer, phone, address, order_date as date, total, status, pay, processed_by as processedBy FROM orders ORDER BY created_at DESC LIMIT 50");
-            $orders = $stmt->fetchAll();
+            $pdo->exec("ALTER TABLE orders ADD COLUMN items TEXT");
+        } catch (Throwable $ignore) {}
+
+        try {
+            $stmt = $pdo->query("SELECT id, customer, phone, address, order_date as date, total, status, pay, processed_by as processedBy, items FROM orders ORDER BY created_at DESC LIMIT 50");
+            $rawOrders = $stmt->fetchAll();
+            $orders = [];
+            foreach ($rawOrders as $o) {
+                // Parse chuỗi JSON items từ MySQL thành Mảng (Array) để Frontend hiển thị được
+                $o['items'] = !empty($o['items']) ? json_decode($o['items'], true) : [];
+                $orders[] = $o;
+            }
             $dataSource = 'MySQL Central Database (VM 4)';
         } catch (Throwable $e) {
             $pdo = null;
@@ -80,8 +91,13 @@ if ($method === 'POST') {
 
     $savedToMySQL = false;
     if ($pdo !== null) {
+        // Cố gắng tự động vá Database: Thêm cột items nếu chưa có
         try {
-            $stmt = $pdo->prepare("INSERT INTO orders (id, customer, phone, address, order_date, total, status, pay, processed_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $pdo->exec("ALTER TABLE orders ADD COLUMN items TEXT");
+        } catch (Throwable $ignore) {}
+
+        try {
+            $stmt = $pdo->prepare("INSERT INTO orders (id, customer, phone, address, order_date, total, status, pay, processed_by, items) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $newOrder['id'],
                 $newOrder['customer'],
@@ -91,7 +107,8 @@ if ($method === 'POST') {
                 $newOrder['total'],
                 $newOrder['status'],
                 $newOrder['pay'],
-                $newOrder['processedBy']
+                $newOrder['processedBy'],
+                json_encode($newOrder['items'], JSON_UNESCAPED_UNICODE)
             ]);
             $savedToMySQL = true;
         } catch (Throwable $e) {
@@ -138,6 +155,33 @@ if ($method === 'DELETE') {
     }
 
     echo json_encode(['status' => 'success', 'message' => "Đã xóa đơn hàng {$orderId}"], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+// ==========================================
+// CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG (PUT)
+// ==========================================
+if ($method === 'PUT') {
+    $rawInput = file_get_contents('php://input');
+    $input = json_decode($rawInput, true);
+    if ($input && !empty($input['id'])) {
+        if ($pdo !== null) {
+            try {
+                $stmt = $pdo->prepare("UPDATE orders SET status=? WHERE id=?");
+                $stmt->execute([$input['status'] ?? 'Đang giao', $input['id']]);
+            } catch (Throwable $e) {}
+        }
+        
+        $content = file_get_contents($dataFile);
+        $orders = json_decode($content, true) ?: [];
+        foreach ($orders as &$o) {
+            if ((string)$o['id'] === (string)$input['id'] || (string)('#'.$o['id']) === (string)$input['id']) {
+                if (isset($input['status'])) $o['status'] = $input['status'];
+            }
+        }
+        file_put_contents($dataFile, json_encode($orders, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    }
+    echo json_encode(['status' => 'success']);
     exit;
 }
 

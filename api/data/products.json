@@ -18,11 +18,11 @@
       "#1e293b",
       "#334155"
     ],
-    "stock": 5,
+    "stock": 4,
     "rating": 5,
     "isNew": true,
     "imported": 50,
-    "sold": 5,
+    "sold": 6,
     "img": "img/iphone17.webp"
   },
   {
@@ -616,11 +616,11 @@
       "#1e293b",
       "#334155"
     ],
-    "stock": 10,
+    "stock": 9,
     "rating": 5,
     "isNew": false,
     "imported": 50,
-    "sold": 0,
+    "sold": 1,
     "img": "img/ip12_light.jpg"
   },
   {
@@ -778,5 +778,17 @@
     "imported": 50,
     "sold": 0,
     "img": "img/iphone-11.webp"
+  },
+  {
+    "id": null,
+    "code": "SP5419",
+    "name": "IP 16",
+    "price": 10000000,
+    "stock": 10,
+    "category": "Điện thoại",
+    "brand": "Khác",
+    "isNew": true,
+    "imported": 10,
+    "sold": 0
   }
 ]

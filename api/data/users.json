@@ -1,5 +1,15 @@
 [
   {
+    "id": "KH002",
+    "name": "phu",
+    "email": "phu@gmail.com",
+    "phone": "",
+    "password": "12345",
+    "joined": "8/10/2026",
+    "orders": 0,
+    "locked": false
+  },
+  {
     "id": "KH001",
     "name": "Trần Văn Nam",
     "email": "vannam@gmail.com",

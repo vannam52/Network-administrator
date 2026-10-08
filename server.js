@@ -149,7 +149,7 @@ const server = http.createServer((req, res) => {
                 }
               });
               fs.writeFileSync(productsFile, JSON.stringify(prods, null, 2), 'utf8');
-            } catch (err) {}
+            } catch (err) { }
           }
 
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -172,10 +172,33 @@ const server = http.createServer((req, res) => {
           let orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8') || '[]');
           orders = orders.filter(o => o.id !== orderId && o.id !== ('#' + orderId));
           fs.writeFileSync(ordersFile, JSON.stringify(orders, null, 2), 'utf8');
-        } catch (e) {}
+        } catch (e) { }
       }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ status: 'success', message: 'Đã xóa đơn hàng' }));
+      return;
+    } else if (req.method === 'PUT') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const input = JSON.parse(body || '{}');
+          if (fs.existsSync(ordersFile)) {
+            let orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8') || '[]');
+            const index = orders.findIndex(o => String(o.id) === String(input.id));
+            if (index !== -1) {
+              orders[index] = { ...orders[index], ...input };
+              fs.writeFileSync(ordersFile, JSON.stringify(orders, null, 2), 'utf8');
+              res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+              return res.end(JSON.stringify({ status: 'success', order: orders[index] }));
+            }
+          }
+          throw new Error('Không tìm thấy đơn hàng');
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ status: 'error', message: e.message }));
+        }
+      });
       return;
     }
   }
@@ -204,6 +227,7 @@ const server = http.createServer((req, res) => {
             name: (input.name || 'Khách hàng').trim(),
             email: (input.email || '').trim(),
             phone: (input.phone || '').trim(),
+            password: input.password || '123456', // Lưu tạm pass dạng plain text để test local
             joined: new Date().toLocaleDateString('vi-VN'),
             orders: 0,
             locked: false
@@ -215,6 +239,72 @@ const server = http.createServer((req, res) => {
         } catch (e) {
           res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ status: 'error', message: e.message }));
+        }
+      });
+      return;
+    } else if (req.method === 'PUT') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const input = JSON.parse(body || '{}');
+          if (fs.existsSync(usersFile)) {
+            let users = JSON.parse(fs.readFileSync(usersFile, 'utf8') || '[]');
+            const index = users.findIndex(u => String(u.id) === String(input.id));
+            if (index !== -1) {
+              users[index] = { ...users[index], ...input };
+              fs.writeFileSync(usersFile, JSON.stringify(users, null, 2), 'utf8');
+              res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+              return res.end(JSON.stringify({ status: 'success', user: users[index] }));
+            }
+          }
+          throw new Error('Không tìm thấy KH');
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ status: 'error', message: e.message }));
+        }
+      });
+      return;
+    } else if (req.method === 'DELETE') {
+      const qIndex = req.url.indexOf('?');
+      let id = qIndex !== -1 ? new URLSearchParams(req.url.slice(qIndex + 1)).get('id') : '';
+      if (id && fs.existsSync(usersFile)) {
+        try {
+          let users = JSON.parse(fs.readFileSync(usersFile, 'utf8') || '[]');
+          users = users.filter(u => String(u.id) !== String(id));
+          fs.writeFileSync(usersFile, JSON.stringify(users, null, 2), 'utf8');
+        } catch (e) { }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ status: 'success' }));
+      return;
+    }
+  }
+
+  // Auth API
+  if (urlPath === '/api/auth' || urlPath === '/api/auth.php') {
+    if (req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const input = JSON.parse(body || '{}');
+          const usersFile = path.join(ROOT_DIR, 'api', 'data', 'users.json');
+          let users = fs.existsSync(usersFile) ? JSON.parse(fs.readFileSync(usersFile, 'utf8') || '[]') : [];
+          
+          const user = users.find(u => u.phone === input.phone || u.email === input.phone);
+          if (user) {
+            const savedPass = user.password || '123456';
+            if (input.password === savedPass) {
+              res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+              return res.end(JSON.stringify({ status: 'success', user: user }));
+            }
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ status: 'error', message: 'Sai mật khẩu' }));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ status: 'error' }));
         }
       });
       return;
@@ -267,21 +357,62 @@ const server = http.createServer((req, res) => {
           fs.writeFileSync(productsFile, JSON.stringify(products, null, 2), 'utf8');
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ status: 'success' }));
-        } catch(e) {
+        } catch (e) {
           res.writeHead(400);
           res.end('Error');
         }
       });
       return;
+    } else if (req.method === 'PUT') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const input = JSON.parse(body || '{}');
+          if (fs.existsSync(productsFile)) {
+            let prods = JSON.parse(fs.readFileSync(productsFile, 'utf8') || '[]');
+            const index = prods.findIndex(p => String(p.id) === String(input.id));
+            if (index !== -1) {
+              prods[index] = { ...prods[index], ...input };
+              fs.writeFileSync(productsFile, JSON.stringify(prods, null, 2), 'utf8');
+              res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+              return res.end(JSON.stringify({ status: 'success' }));
+            }
+          }
+          throw new Error('Không tìm thấy SP');
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ status: 'error', message: e.message }));
+        }
+      });
+      return;
+    } else if (req.method === 'DELETE') {
+      const qIndex = req.url.indexOf('?');
+      let id = qIndex !== -1 ? new URLSearchParams(req.url.slice(qIndex + 1)).get('id') : '';
+      if (id && fs.existsSync(productsFile)) {
+        try {
+          let prods = JSON.parse(fs.readFileSync(productsFile, 'utf8') || '[]');
+          prods = prods.filter(p => String(p.id) !== String(id));
+          fs.writeFileSync(productsFile, JSON.stringify(prods, null, 2), 'utf8');
+        } catch (e) { }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ status: 'success' }));
+      return;
     }
   }
 
-  // SPA route /admin -> root index.html
-  if (urlPath === '/admin' || urlPath === '/admin/' || urlPath.startsWith('/admin?')) {
-    const indexPath = path.join(ROOT_DIR, 'index.html');
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    fs.createReadStream(indexPath).pipe(res);
-    return;
+  // Admin route /admin -> admin/index.html (Bản Admin xịn)
+  if (urlPath.startsWith('/admin')) {
+    // Nếu là file tĩnh trong thư mục admin (ví dụ /admin/css/admin.css) thì bỏ qua để fallback xử lý
+    if (!urlPath.includes('.css') && !urlPath.includes('.js')) {
+      const indexPath = path.join(ROOT_DIR, 'admin', 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        fs.createReadStream(indexPath).pipe(res);
+        return;
+      }
+    }
   }
 
   // Static files and SPA fallback
