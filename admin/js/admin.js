@@ -61,9 +61,10 @@ function adminApp() {
         async saveProduct() {
             this.loading = true;
             try {
-                // Tạm thời gọi API thêm mới (products.php hỗ trợ POST)
-                const res = await fetch('/api/products.php', {
-                    method: 'POST',
+                const method = this.form.id ? 'PUT' : 'POST';
+                const apiUrl = '/api/products.php';
+                const res = await fetch(apiUrl, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(this.form)
                 });
