@@ -136,13 +136,13 @@ flowchart TD
         API --> DB_PHP["Trình kết nối CSDL<br>(api/db.php)"]
         DB_PHP --> DB_Check{"Ping Socket tới<br>VM 4:3306"}
         
-        DB_Check -->|Kết nối thành công| MySQL[("🗄️ MySQL Database<br>(VM 4)") ]
+        DB_Check -->|Kết nối thành công| MySQL[("🗄️ MySQL Database<br>(VM 4)")]
         DB_Check -->|Lỗi Timeout hoặc Refused| Fallback["Kích hoạt cờ dbError<br>Ghi Log hệ thống"]
         
-        Fallback --> JSON[("📁 File dự phòng JSON<br>(api/data/*.json)") ]
+        Fallback --> JSON[("📁 File dự phòng JSON<br>(api/data/*.json)")]
         
-        MySQL -->|Dữ liệu chuẩn| Format["Đóng gói JSON Response<br>{status, source: MySQL}"]
-        JSON -->|Dữ liệu backup| Format["Đóng gói JSON Response<br>{status, source: JSON Local}"]
+        MySQL -->|Dữ liệu chuẩn| Format["Đóng gói JSON Response"]
+        JSON -->|Dữ liệu backup| Format
     end
     
     Format -->|Trả về Status 200| Client
