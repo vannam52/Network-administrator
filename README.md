@@ -130,14 +130,14 @@ Hệ thống được thiết kế theo tiêu chuẩn mạng có độ sẵn sà
 
 ```mermaid
 flowchart TD
-    Client["💻 Khách truy cập / Admin<br>(Giao diện React SPA)"] -->|AJAX Fetch (JSON)| API["Trình điều khiển API<br>(api/users.php, orders.php...)"]
+    Client["💻 Khách truy cập / Admin<br>(Giao diện React SPA)"] -->|AJAX Fetch JSON| API["Trình điều khiển API<br>(api/users.php, orders.php...)"]
     
     subgraph "Web Server (VM 2 & VM 3)"
         API --> DB_PHP["Trình kết nối CSDL<br>(api/db.php)"]
         DB_PHP --> DB_Check{"Ping Socket tới<br>VM 4:3306"}
         
-        DB_Check -->|"Kết nối thành công"| MySQL[("🗄️ MySQL Database<br>(VM 4)") ]
-        DB_Check -->|"Lỗi (Timeout / Refused)"| Fallback["Kích hoạt cờ dbError<br>Ghi Log hệ thống"]
+        DB_Check -->|Kết nối thành công| MySQL[("🗄️ MySQL Database<br>(VM 4)") ]
+        DB_Check -->|Lỗi Timeout hoặc Refused| Fallback["Kích hoạt cờ dbError<br>Ghi Log hệ thống"]
         
         Fallback --> JSON[("📁 File dự phòng JSON<br>(api/data/*.json)") ]
         
@@ -145,7 +145,7 @@ flowchart TD
         JSON -->|Dữ liệu backup| Format["Đóng gói JSON Response<br>{status, source: JSON Local}"]
     end
     
-    Format -->|Trả về (Status 200)| Client
+    Format -->|Trả về Status 200| Client
 ```
 
 - **Chế độ bình thường**: Toàn bộ thao tác đọc/ghi của Apache (VM 2) và IIS (VM 3) đều ghi trực tiếp vào MySQL tập trung tại VM 4.
@@ -163,7 +163,7 @@ graph TD
     VPN(("🌐 Tailscale VPN Mesh<br>(Remote Access / Quản trị)"))
     Dev["👨‍💻 Quản trị viên / Dev"] -->|Kết nối từ xa an toàn| VPN
     
-    Client["💻 Khách truy cập<br>https://shop-ecommerce.local"] -->|HTTP (80) & HTTPS (443)| VM1
+    Client["💻 Khách truy cập<br>https://shop-ecommerce.local"] -->|HTTP 80 và HTTPS 443| VM1
     
     subgraph "DMZ / GATEWAY"
         VM1["🌐 VM 1: NGINX Load Balancer<br>Reverse Proxy & Phân tải"]
