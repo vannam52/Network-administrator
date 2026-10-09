@@ -330,7 +330,8 @@
 
         try {
           // Gọi API kiểm tra mật khẩu thực sự
-          const res = await fetch('/api/auth.php', {
+          const apiUrl = window.location.port === '3000' ? 'http://100.109.69.94/api/auth.php' : '/api/auth.php';
+          const res = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone, password })
@@ -404,7 +405,7 @@
             btn.disabled = true;
 
             try {
-              const apiUrl = window.location.port === '3000' ? '/api/users' : '/api/users.php';
+              const apiUrl = window.location.port === '3000' ? 'http://100.109.69.94/api/users.php' : '/api/users.php';
               const res = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -423,7 +424,7 @@
                 btn.disabled = false;
               }
             } catch (err) {
-              alert('Lỗi kết nối máy chủ!');
+              alert('Lỗi kết nối máy chủ! (Vui lòng kiểm tra lại Username/Mật khẩu MySQL trong file db.php trên máy ảo). Lỗi chi tiết: ' + err.message);
               btn.textContent = originalText;
               btn.disabled = false;
             }
@@ -514,8 +515,8 @@
           const code = 'SP' + Math.floor(Math.random() * 10000);
 
           try {
-            // Tự động gọi API chung (hỗ trợ cả Node.js và PHP)
-            const apiUrl = window.location.port === '3000' ? '/api/products' : '/api/products.php';
+            // Tự động gọi API chung (Trỏ thẳng vào PHP trên máy ảo nếu đang code ở Windows)
+            const apiUrl = window.location.port === '3000' ? 'http://100.109.69.94/api/products.php' : '/api/products.php';
             const res = await fetch(apiUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

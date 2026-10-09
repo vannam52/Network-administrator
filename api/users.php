@@ -90,9 +90,18 @@ if ($method === 'POST') {
     ];
 
     $savedToMySQL = false;
-    if ($pdo !== null) {
-        try {
-            $stmt = $pdo->prepare("INSERT INTO users (hoTen, email, sdt, matKhau, role) VALUES (?, ?, ?, ?, 'customer')");
+    if ($pdo === null) {
+        http_response_code(400);
+        global $dbError;
+        echo json_encode(['status' => 'error', 'message' => 'Không thể kết nối đến MySQL. Vui lòng kiểm tra lại Username/Password trong file api/db.php! Chi tiết lỗi: ' . $dbError]);
+        exit;
+    }
+
+    try {
+            // id là BIGINT và không có AUTO_INCREMENT, ta sẽ dùng time() làm ID
+            $newUserIdInt = time() . rand(10, 99);
+            
+            $stmt = $pdo->prepare("INSERT INTO users (id, hoTen, email, sdt, matKhau, role) VALUES (?, ?, ?, ?, ?, 'customer')");
             
             // Xử lý email rỗng để không bị lỗi UNIQUE của MySQL
             $safeEmail = trim($newUser['email']);
@@ -101,6 +110,7 @@ if ($method === 'POST') {
             }
 
             $stmt->execute([
+                $newUserIdInt,
                 $newUser['name'],
                 $safeEmail,
                 $newUser['phone'],
@@ -109,8 +119,10 @@ if ($method === 'POST') {
             $savedToMySQL = true;
         } catch (Throwable $e) {
             $savedToMySQL = false;
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Lỗi DB: ' . $e->getMessage()]);
+            exit;
         }
-    }
 
     array_unshift($users, $newUser);
     file_put_contents($dataFile, json_encode($users, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
@@ -138,9 +150,14 @@ if ($method === 'DELETE') {
     if ($id) {
         if ($pdo !== null) {
             try {
+                // Ép kiểu ID về chuỗi số nguyên để so sánh an toàn với BIGINT
                 $stmt = $pdo->prepare("DELETE FROM users WHERE id=?");
-                $stmt->execute([$id]);
-            } catch (Throwable $e) {}
+                $stmt->execute([(string)$id]);
+            } catch (Throwable $e) {
+                http_response_code(400);
+                echo json_encode(['status' => 'error', 'message' => 'Lỗi xóa DB: ' . $e->getMessage()]);
+                exit;
+            }
         }
         $content = file_get_contents($dataFile);
         $users = json_decode($content, true) ?: [];
@@ -160,12 +177,15 @@ if ($method === 'PUT') {
     if ($input && !empty($input['id'])) {
         if ($pdo !== null) {
             try {
-                // Đảo trạng thái khóa (1 là khóa, 0 là mở)
-                $stmt = $pdo->prepare("UPDATE users SET role=? WHERE id=?");
-                // Mượn cột role để demo (hoặc tạo thêm cột locked nếu cần)
-                $newRole = (isset($input['locked']) && $input['locked']) ? 'locked' : 'customer';
-                $stmt->execute([$newRole, $input['id']]);
-            } catch (Throwable $e) {}
+                // Cập nhật đúng cột trangThai thay vì mượn cột role
+                $stmt = $pdo->prepare("UPDATE users SET trangThai=? WHERE id=?");
+                $newStatus = (isset($input['locked']) && $input['locked']) ? 'Bi khoá' : 'Hoạt động';
+                $stmt->execute([$newStatus, (string)$input['id']]);
+            } catch (Throwable $e) {
+                http_response_code(400);
+                echo json_encode(['status' => 'error', 'message' => 'Lỗi cập nhật DB: ' . $e->getMessage()]);
+                exit;
+            }
         }
         $content = file_get_contents($dataFile);
         $users = json_decode($content, true) ?: [];

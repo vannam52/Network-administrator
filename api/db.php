@@ -1,8 +1,8 @@
 <?php
-$dbHost = '100.72.145.103';
+$dbHost = '127.0.0.1';
 $dbPort = '3306';
 $dbName = 'phone_store';
-$dbUser = 'shop_user';
+$dbUser = 'shop_web';
 $dbPass = 'Shop@123456';
 
 $pdo = null;
