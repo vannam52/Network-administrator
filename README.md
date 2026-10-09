@@ -47,9 +47,10 @@ Hệ thống cụm máy ảo được kết nối thông suốt với nhau thôn
 | Vai trò máy chủ (Node) | Tailscale Hostname | Hệ điều hành | Dịch vụ chính | Địa chỉ IP Tailscale | Cổng dịch vụ (Port) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **VM 1: NGINX** | `localhost-0` | Linux (Ubuntu Server) | Reverse Proxy & Load Balancer | **`100.73.121.85`** | `80` (HTTP), `443` (HTTPS) |
-| **VM 2: Linux Web Server** | `web-centos` | Linux (CentOS / Ubuntu) | Web Server Backend (Apache/PHP) & FTP | **`100.86.108.58`** | `80` (HTTP), `21` + `40000:40100` (FTP) |
-| **VM 3: Windows IIS** | `win-7n4gk2a89pl` | Windows Server | Web Server Backend (IIS + PHP) & FTP | **`100.109.69.94`** | `80` (HTTP), `21` + `5000:5100` (FTP) |
-| **VM 4: Database** | `thanhphat-virtualbox` | Linux (Ubuntu) | MySQL/MariaDB Server & Monitoring | **`100.72.145.103`** | `3306` (MySQL), `7890` (GoAccess Web) |
+| **VM 2: Linux Web Server** | `web-centos` | Linux (CentOS / Ubuntu) | Web Server Backend (Apache/PHP) | **`100.86.108.58`** | `80` (HTTP) |
+| **VM 3: Windows IIS** | `win-7n4gk2a89pl` | Windows Server | Web Server Backend (IIS + PHP) | **`100.109.69.94`** | `80` (HTTP) |
+| **VM 4: Database** | `thanhphat-virtualbox` | Linux (Ubuntu) | MySQL/MariaDB Server & Monitoring | **`100.72.145.103`** | `3306` (MySQL), `7890` (GoAccess) |
+| **VM 5: FTP Server (Cô lập)** | `ftp-server` | Linux / Windows | Máy chủ truyền tải mã nguồn cô lập | **`100.x.x.x`** | `21` (FTP/FTPS) |
 
 > 🌐 **Tailscale Funnel Public URL (Node IIS)**: `https://win-7n4gk2a89pl.taileee594.ts.net`
 
@@ -128,12 +129,23 @@ Cả hai Node Web Server (Apache và IIS) đều cung cấp cụm API chuẩn RE
 Hệ thống được thiết kế theo tiêu chuẩn mạng có độ sẵn sàng cao (**High Availability**):
 
 ```mermaid
-flowchart LR
-    API["API Request (/api/*.php)"] --> DB_Check{"Kết nối MySQL tập trung<br>(VM 4: 100.72.145.103:3306)?"}
-    DB_Check -- "✅ Trực tuyến" --> MySQL[("Central Database (shop_db)")]
-    DB_Check -- "❌ Mất mạng / Bảo trì" --> JSON[("Local JSON Storage (api/data/*.json)")]
-    MySQL --> Response["Phản hồi JSON Data (Source: MySQL)"]
-    JSON --> Response2["Phản hồi JSON Data (Source: Local JSON)"]
+flowchart TD
+    Client["💻 Khách truy cập / Admin<br>(Giao diện React SPA)"] -->|AJAX Fetch (JSON)| API["Trình điều khiển API<br>(api/users.php, orders.php...)"]
+    
+    subgraph "Web Server (VM 2 & VM 3)"
+        API --> DB_PHP["Trình kết nối CSDL<br>(api/db.php)"]
+        DB_PHP --> DB_Check{"Ping Socket tới<br>VM 4:3306"}
+        
+        DB_Check -->|"Kết nối thành công"| MySQL[("🗄️ MySQL Database<br>(VM 4)") ]
+        DB_Check -->|"Lỗi (Timeout / Refused)"| Fallback["Kích hoạt cờ dbError<br>Ghi Log hệ thống"]
+        
+        Fallback --> JSON[("📁 File dự phòng JSON<br>(api/data/*.json)") ]
+        
+        MySQL -->|Dữ liệu chuẩn| Format["Đóng gói JSON Response<br>{status, source: MySQL}"]
+        JSON -->|Dữ liệu backup| Format["Đóng gói JSON Response<br>{status, source: JSON Local}"]
+    end
+    
+    Format -->|Trả về (Status 200)| Client
 ```
 
 - **Chế độ bình thường**: Toàn bộ thao tác đọc/ghi của Apache (VM 2) và IIS (VM 3) đều ghi trực tiếp vào MySQL tập trung tại VM 4.
@@ -141,32 +153,94 @@ flowchart LR
 
 ---
 
-## 🌐 V. SƠ ĐỒ KIẾN TRÚC MẠNG & KẾT NỐI HỆ THỐNG
+## 🌐 V. SƠ ĐỒ KIẾN TRÚC MẠNG & LUỒNG HOẠT ĐỘNG (WORKFLOW)
+
+### 1. Sơ đồ kiến trúc mạng (Network Topology)
+Mô tả hạ tầng vật lý và kết nối mạng giữa 5 máy ảo thông qua Tailscale VPN.
 
 ```mermaid
 graph TD
-    Client["💻 Khách truy cập: http://shop-ecommerce.local"] -->|Port 80| VM1["🌐 VM 1: NGINX (100.73.121.85)<br>TV 1: Reverse Proxy & Load Balancer"]
+    VPN(("🌐 Tailscale VPN Mesh<br>(Remote Access / Quản trị)"))
+    Dev["👨‍💻 Quản trị viên / Dev"] -->|Kết nối từ xa an toàn| VPN
     
-    subgraph "CỤM BACKEND WEB SERVERS"
-        VM1 -->|Cân bằng tải Round-Robin| VM2["🐧 VM 2: Linux Web Server (100.86.108.58)<br>TV 2: [Server 1: Linux Apache]"]
-        VM1 -->|Cân bằng tải Round-Robin| VM3["🪟 VM 3: Windows IIS (100.109.69.94)<br>TV 3: [Server 2: Windows IIS]"]
+    Client["💻 Khách truy cập<br>https://shop-ecommerce.local"] -->|HTTP (80) & HTTPS (443)| VM1
+    
+    subgraph "DMZ / GATEWAY"
+        VM1["🌐 VM 1: NGINX Load Balancer<br>Reverse Proxy & Phân tải"]
+    end
+    
+    subgraph "BACKEND WEB SERVERS"
+        VM2["🐧 VM 2: Linux Web Server<br>[Server 1: Apache]"]
+        VM3["🪟 VM 3: Windows Web Server<br>[Server 2: IIS]"]
+    end
+    
+    subgraph "DATA LAYER"
+        VM4["🗄️ VM 4: Database Server<br>MySQL (shop_db) & Monitor"]
+    end
+    
+    subgraph "FILE STORAGE & DEPLOYMENT"
+        VM5["📦 VM 5: Isolated FTP Server<br>Cô lập file tải lên/Mã nguồn"]
     end
 
-    subgraph "HỆ THỐNG DỮ LIỆU & GIÁM SÁT"
-        VM2 -->|Query Port 3306| VM4["🗄️ VM 4: Database & Monitoring (100.72.145.103)<br>TV 5: MySQL (shop_db) + GoAccess + ab"]
-        VM3 -->|Query Port 3306| VM4
-    end
+    %% Flow Load Balancing
+    VM1 -->|Round-Robin| VM2
+    VM1 -->|Round-Robin| VM3
+    
+    %% Flow Database
+    VM2 -->|Port 3306| VM4
+    VM3 -->|Port 3306| VM4
+    
+    %% Flow FTP Deployment
+    VPN -.->|Cập nhật Code qua FTP| VM5
+    VM5 -.->|Mount / Đồng bộ code| VM2
+    VM5 -.->|Mount / Đồng bộ code| VM3
+    
+    %% Flow Tailscale admin
+    VPN -.->|SSH / RDP| VM1
+    VPN -.->|SSH / RDP| VM2
+    VPN -.->|SSH / RDP| VM3
+    VPN -.->|SSH / RDP| VM4
+```
 
-    subgraph "QUẢN TRỊ MÃ NGUỒN"
-        Dev["👨‍💻 Lập trình viên (FTP Client)"] -->|FTPS User Isolation| FTP["📦 Cụm FTP Server (VM 2 & VM 3)<br>TV 4: vsftpd & IIS FTP Isolation"]
-        FTP --> VM2
-        FTP --> VM3
-    end
+### 2. Sơ đồ luồng hoạt động hệ thống (System Workflow)
+Mô tả luồng đi của dữ liệu (Data flow) khi Khách hàng mua sắm và khi Quản trị viên vận hành hệ thống.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Khách Hàng
+    participant NGINX as NGINX (VM 1)
+    participant Backend as Backend (VM 2 / 3)
+    participant DB as Database (VM 4)
+    participant FTP as FTP (VM 5)
+    actor Dev as Quản trị viên
+
+    Note over User, DB: --- LUỒNG 1: KHÁCH HÀNG MUA SẮM ---
+    User->>NGINX: Truy cập Web / Đặt hàng
+    NGINX->>Backend: Cân bằng tải (Round-Robin)
+    Backend->>DB: Truy vấn & Ghi nhận đơn hàng
+    DB-->>Backend: Phản hồi kết quả (JSON)
+    Backend-->>User: Trả về giao diện & Thông báo
+
+    Note over Backend, Dev: --- LUỒNG 2: CẬP NHẬT MÃ NGUỒN ---
+    Dev->>FTP: Truy cập VPN & Upload File
+    FTP->>Backend: Đồng bộ File tự động (NFS)
+    Backend-->>Dev: Áp dụng Code mới lên Web
 ```
 
 ---
 
 ## 🛠️ VI. HƯỚNG DẪN CẤU HÌNH CHI TIẾT TỪNG MÁY CHỦ
+
+### Bước 0: Thiết lập hạ tầng mạng lõi (Tailscale VPN)
+*Thực hiện trên toàn bộ 5 Máy ảo (VM 1 -> VM 5)*
+Để các máy ảo có thể giao tiếp an toàn xuyên mạng vật lý, tất cả phải được cài đặt Tailscale:
+1. **Linux (Ubuntu/CentOS):** `curl -fsSL https://tailscale.com/install.sh | sh`
+2. **Windows Server:** Tải file `.exe` từ trang chủ Tailscale.
+3. Chạy lệnh `sudo tailscale up` và xác thực thiết bị trên Admin Console.
+4. (Tuỳ chọn) Đổi tên máy (Hostname) trên Tailscale Admin Console cho dễ quản lý (vd: `nginx-lb`, `web-apache`, `db-mysql`).
+
+---
 
 ### 1. Cấu hình VM 1: NGINX Reverse Proxy & Load Balancer (`100.73.121.85`)
 *Người phụ trách: Thành viên 1*
@@ -222,6 +296,14 @@ graph TD
    ```bash
    sudo nginx -t
    sudo systemctl restart nginx
+   ```
+4. **Cài đặt GoAccess giám sát Log (Web Analytics)**:
+   Do NGINX nằm ở máy này nên ta cài GoAccess tại đây để phân tích log truy cập:
+   ```bash
+   sudo apt install goaccess -y
+   sudo mkdir -p /var/www/html
+   # Khởi chạy GoAccess xuất HTML thời gian thực (chạy nền trên port 7890)
+   sudo goaccess /var/log/nginx/access.log -o /var/www/html/report.html --log-format=COMBINED --real-time-html --port=7890 --daemonize
    ```
 
 ---
@@ -287,15 +369,15 @@ graph TD
 
 ---
 
-### 4. Cấu hình Cụm FTP Server với User Isolation (Trên VM 2 & VM 3)
+### 4. Cấu hình VM 5: Máy chủ FTP Cô lập (Isolated FTP Server)
 *Người phụ trách: Thành viên 4*
 
-#### A. Cấu hình trên Linux (VM 2) với `vsftpd`:
-1. Cài đặt `vsftpd`:
+Mô hình 5 VM tách biệt hoàn toàn dịch vụ lưu trữ (Storage/FTP) ra khỏi Web Server để tăng tính bảo mật (Cô lập tài nguyên).
+1. **Cài đặt FTP Server (`vsftpd` trên Linux)**:
    ```bash
-   sudo apt install vsftpd -y
+   sudo apt update && sudo apt install vsftpd -y
    ```
-2. Cấu hình `/etc/vsftpd.conf`:
+2. **Cấu hình Cô lập thư mục (Chroot) trong `/etc/vsftpd.conf`**:
    ```ini
    listen=YES
    anonymous_enable=NO
@@ -307,20 +389,17 @@ graph TD
    pasv_min_port=40000
    pasv_max_port=40100
    ```
-3. Tạo user developer và khóa vào `/var/www/html`:
+   Tạo user `dev_user` và khóa vào thư mục `/var/www/shared_code`:
    ```bash
-   sudo useradd -m -d /var/www/html dev_linux
-   sudo passwd dev_linux
-   sudo chown -R dev_linux:www-data /var/www/html
+   sudo useradd -m -d /var/www/shared_code dev_user
+   sudo passwd dev_user
    sudo systemctl restart vsftpd
    ```
-
-#### B. Cấu hình trên Windows IIS (VM 3) với FTP User Isolation:
-1. Trong Server Manager, cài đặt thêm tính năng **FTP Server** & **FTP Service**.
-2. Mở IIS Manager ➔ Chuột phải Sites ➔ **Add FTP Site**:
-   * Binding: Port 21, No SSL (hoặc chọn FTPS with certificate).
-   * Authentication: Basic, Authorization: Specified users (`dev_windows` có quyền Read/Write).
-   * Chọn tính năng **FTP User Isolation** ➔ Chọn **Isolate users. Restrict users to the following directory** (User name directory).
+3. **Đồng bộ mã nguồn bằng NFS (Network File System)**:
+   * **Trên VM 5 (NFS Server):** Cài đặt `nfs-kernel-server`. Thêm vào file `/etc/exports`: 
+     `/var/www/shared_code 100.0.0.0/8(rw,sync,no_subtree_check)`
+   * **Trên VM 2 & VM 3 (NFS Clients):** Mount thư mục chia sẻ từ VM 5 vào thư mục chạy web của Apache/IIS (vd: `/var/www/html`).
+   * *Kết quả:* Lập trình viên chỉ cần dùng FileZilla upload code lên VM 5, mã nguồn sẽ tự động phản ánh trực tiếp sang cả 2 Backend Servers.
 
 ---
 
@@ -332,24 +411,22 @@ graph TD
    sudo apt update
    sudo apt install mariadb-server -y
    ```
-2. **Mở kết nối từ xa trên MySQL**:
-   * Mở file cấu hình `/etc/mysql/mariadb.conf.d/50-server.cnf`:
-     ```ini
-     bind-address = 0.0.0.0
+2. **Mở kết nối từ xa & Thiết lập Tường lửa bảo mật (UFW)**:
+   * Mở file `/etc/mysql/mariadb.conf.d/50-server.cnf` và đặt: `bind-address = 0.0.0.0`
+   * **Cực kỳ quan trọng:** Chỉ cho phép dải IP mạng ảo Tailscale truy cập Port 3306 để tránh bị tấn công từ Internet:
+     ```bash
+     sudo ufw allow from 100.0.0.0/8 to any port 3306
+     sudo ufw enable
+     sudo systemctl restart mariadb
      ```
-   * Khởi động lại MySQL: `sudo systemctl restart mariadb`.
 3. **Khởi tạo CSDL `shop_db`**:
    * Import file [database.sql](file:///d:/Work_Project/QTM/Network-administrator/database.sql) có sẵn trong dự án:
      ```bash
      sudo mysql < database.sql
      ```
      *(Lệnh này sẽ tự động tạo bảng `products`, `orders`, `users` và cấp quyền kết nối từ xa cho dải IP Tailscale `100.%` với user `shop_user` / password `Shop@123456`).*
-4. **Cài đặt GoAccess giám sát thời gian thực log NGINX**:
-   ```bash
-   sudo apt install goaccess -y
-   goaccess /var/log/nginx/access.log -o /var/www/html/report.html --log-format=COMBINED --real-time-html
-   ```
-5. **Dùng Apache Benchmark (`ab`) bắn tải kiểm thử**:
+4. **Dùng Apache Benchmark (`ab`) bắn tải kiểm thử từ VM 4 sang NGINX**:
+   Cài đặt công cụ để đóng vai trò "Kẻ tấn công/Tester" bắn request sang Load Balancer:
    ```bash
    sudo apt install apache2-utils -y
    ab -n 5000 -c 100 http://100.73.121.85/
@@ -389,9 +466,9 @@ graph TD
 2. Chứng minh: User chỉ được xem thư mục `/var/www/html`, khi cố gắng gõ `cd /etc` hoặc `cd /root` thì hệ thống sẽ từ chối truy cập (nhờ tính năng `chroot`).
 
 ### Kịch bản 5: Demo Giám sát thời gian thực & Bắn tải (DevOps)
-1. Mở giao diện GoAccess trên trình duyệt: `http://100.72.145.103:7890`.
+1. Mở giao diện GoAccess trên trình duyệt: `http://100.73.121.85/report.html` (Hoặc mở port 7890 của VM 1).
 2. Từ terminal VM 4, chạy lệnh bắn tải: `ab -n 2000 -c 50 http://100.73.121.85/`.
-3. Cho giảng viên quan sát lưu lượng đồ thị request tăng đột biến trên GoAccess, chứng minh hệ thống cụm chịu tải tốt và không có request nào bị drop.
+3. Cho giảng viên quan sát lưu lượng đồ thị request tăng đột biến trên màn hình GoAccess, chứng minh hệ thống cụm chịu tải tốt và NGINX Load Balancer điều phối nhịp nhàng mà không rớt request (0 failed requests).
 
 ---
 
