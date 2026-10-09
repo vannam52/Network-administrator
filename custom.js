@@ -137,7 +137,56 @@
   }
 
   // 5. Khắc phục sự kiện cho Menu Header (iPhone Store, Các dòng iPhone)
+  // Thay thế Slider động bị lỗi thành một Banner tĩnh đẹp mắt
+  function makeHeroBannerStatic() {
+    setInterval(() => {
+      // 1. TÌM VỊ TRÍ CHUẨN XÁC DỰA TRÊN 3 THẺ ICON "GIAO NHANH", "CHÍNH HÃNG"
+      const allDivs = document.querySelectorAll('div');
+      const cardsContainer = Array.from(allDivs).find(e => 
+          e.className && e.className.includes('mt-4') && e.className.includes('grid') && 
+          e.textContent.includes('Giao nhanh 2 giờ')
+      );
+
+      if (cardsContainer) {
+          const section = cardsContainer.parentElement;
+          
+          // 2. THẺ NGAY TRƯỚC 3 ICON CHÍNH LÀ SLIDER CŨ CỦA REACT -> XÓA SỔ NÓ!
+          const reactSlider = cardsContainer.previousElementSibling;
+          if (reactSlider && reactSlider.id !== 'my-static-hero-banner') {
+              reactSlider.remove();
+          }
+          
+          // 3. CHÈN BANNER TĨNH CỦA CHÚNG TA VÀO VỊ TRÍ ĐÓ (NGAY TRƯỚC 3 ICON)
+          if (!document.getElementById('my-static-hero-banner')) {
+              const staticBanner = document.createElement('div');
+              staticBanner.id = 'my-static-hero-banner';
+              staticBanner.innerHTML = `
+                <div style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); border-radius: 24px; padding: 56px 48px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); position: relative; overflow: hidden; width: 100%; box-sizing: border-box;">
+                  <div style="max-width: 55%; position: relative; z-index: 2;">
+                    <span style="color: #2563eb; font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px;">iPhone 15 Pro Max • Đỉnh cao công nghệ</span>
+                    <h1 style="font-size: 52px; font-weight: 800; color: #0f172a; margin: 16px 0; line-height: 1.1; letter-spacing: -1px;">Titanium.<br/>Bền nhẹ ấn tượng.</h1>
+                    <p style="color: #475569; font-size: 17px; margin-bottom: 36px; line-height: 1.6; max-width: 90%;">Khung viền titanium chuẩn hàng không vũ trụ siêu nhẹ, chip A17 Pro mạnh mẽ và cổng sạc USB-C siêu tốc.</p>
+                    <div style="display: flex; gap: 20px; align-items: center;">
+                      <button style="background: #2563eb; color: white; padding: 14px 32px; border-radius: 99px; font-weight: 600; font-size: 15px; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">Mua ngay</button>
+                      <span style="font-weight: 800; color: #0f172a; font-size: 19px;">Từ 19.990.000 đ</span>
+                    </div>
+                  </div>
+                  <div style="width: 45%; text-align: center; position: relative; z-index: 2;">
+                    <img src="/img/iphone15-pro-max-titan-xanh.webp" alt="iPhone 15 Pro Max" style="max-width: 90%; height: auto; filter: drop-shadow(0 20px 30px rgba(0,0,0,0.15)); transform: scale(1.05);" onerror="this.src='https://placehold.co/500x500/f1f5f9/475569?text=iPhone+15+Pro+Max'" />
+                  </div>
+                  <!-- Trang trí background -->
+                  <div style="position: absolute; top: -50px; right: -50px; width: 300px; height: 300px; background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, rgba(255,255,255,0) 70%); border-radius: 50%;"></div>
+                </div>
+              `;
+              section.insertBefore(staticBanner, cardsContainer);
+          }
+      }
+    }, 500);
+  }
+
   function initHeaderNavigation() {
+    // Khởi chạy fix banner
+    makeHeroBannerStatic();
     document.addEventListener('click', (e) => {
       const target = e.target.closest('header nav button');
       if (!target) return;
@@ -304,7 +353,7 @@
 
         try {
           // Gọi API kiểm tra mật khẩu thực sự
-          const apiUrl = window.location.port === '3000' ? 'http://100.109.69.94/api/auth.php' : '/api/auth.php';
+          const apiUrl = window.location.hostname === 'localhost' ? 'http://100.109.69.94/api/auth.php' : '/api/auth.php';
           const res = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -379,7 +428,7 @@
             btn.disabled = true;
 
             try {
-              const apiUrl = window.location.port === '3000' ? 'http://100.109.69.94/api/users.php' : '/api/users.php';
+              const apiUrl = window.location.hostname === 'localhost' ? 'http://100.109.69.94/api/users.php' : '/api/users.php';
               const res = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -490,7 +539,7 @@
 
           try {
             // Tự động gọi API chung (Trỏ thẳng vào PHP trên máy ảo nếu đang code ở Windows)
-            const apiUrl = window.location.port === '3000' ? 'http://100.109.69.94/api/products.php' : '/api/products.php';
+            const apiUrl = window.location.hostname === 'localhost' ? 'http://100.109.69.94/api/products.php' : '/api/products.php';
             const res = await fetch(apiUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
