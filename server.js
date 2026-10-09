@@ -402,17 +402,12 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // Admin route /admin -> admin/index.html (Bản Admin xịn)
-  if (urlPath.startsWith('/admin')) {
-    // Nếu là file tĩnh trong thư mục admin (ví dụ /admin/css/admin.css) thì bỏ qua để fallback xử lý
-    if (!urlPath.includes('.css') && !urlPath.includes('.js')) {
-      const indexPath = path.join(ROOT_DIR, 'admin', 'index.html');
-      if (fs.existsSync(indexPath)) {
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        fs.createReadStream(indexPath).pipe(res);
-        return;
-      }
-    }
+  // SPA route /admin -> root index.html
+  if (urlPath === '/admin' || urlPath === '/admin/' || urlPath.startsWith('/admin?')) {
+    const indexPath = path.join(ROOT_DIR, 'index.html');
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    fs.createReadStream(indexPath).pipe(res);
+    return;
   }
 
   // Static files and SPA fallback

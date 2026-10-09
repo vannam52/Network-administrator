@@ -200,18 +200,8 @@
     } catch (err) { }
   }
 
-  // 7. Thêm liên kết Cổng quản trị vào form Đăng nhập & Ép tải lại trang Admin
+  // 7. Thêm liên kết Cổng quản trị vào form Đăng nhập
   function initAdminLoginEntry() {
-    // Chặn React Router khi click "Cổng quản trị" ở footer
-    document.addEventListener('click', (e) => {
-        const btn = e.target.closest('button');
-        if (btn && btn.textContent.includes('Cổng quản trị')) {
-            e.preventDefault();
-            e.stopPropagation();
-            window.location.href = '/admin'; // Ép tải trang thực tế từ Server
-        }
-    }, true);
-
     setInterval(() => {
       const loginForm = document.querySelector('form.max-w-sm');
       if (loginForm && !document.getElementById('admin-login-entry')) {
@@ -228,7 +218,14 @@
         loginForm.appendChild(linkDiv);
 
         document.getElementById('btn-switch-admin')?.addEventListener('click', () => {
-           window.location.href = '/admin'; // Ép tải trang từ Server
+          const footerButtons = document.querySelectorAll('footer button');
+          for (const btn of footerButtons) {
+            if (btn.textContent.includes('Cổng quản trị')) {
+              btn.click();
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              break;
+            }
+          }
         });
       }
     }, 500);
@@ -243,7 +240,43 @@
     initAdminLoginEntry();
     hideSpecificButtonsInstantly();
     fixLoginVulnerability();
+    fixReactAdminSearchAndFilter();
   });
+
+  // Chữa cháy lỗi Search và Filter của trang Admin React bằng Vanilla JS
+  function fixReactAdminSearchAndFilter() {
+    setInterval(() => {
+      // Chỉ chạy khi ở trang Admin
+      if (!window.location.pathname.includes('/admin')) return;
+      
+      const searchInput = document.querySelector('input[placeholder*="Tìm theo mã, tên"]');
+      const selectCategory = document.querySelector('button[aria-haspopup="menu"]'); // Nút Tất cả danh mục
+      
+      // Nếu có ô search và chưa được gán sự kiện
+      if (searchInput && !searchInput.dataset.hasVanillaSearch) {
+        searchInput.dataset.hasVanillaSearch = "true";
+        
+        searchInput.addEventListener('input', (e) => {
+          const keyword = e.target.value.toLowerCase().trim();
+          filterAdminTable(keyword, '');
+        });
+      }
+    }, 1000);
+  }
+
+  function filterAdminTable(keyword, category) {
+    // Tìm các dòng trong bảng sản phẩm
+    const rows = document.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      // Nếu không khớp từ khóa thì ẩn đi
+      if (keyword && !text.includes(keyword)) {
+        row.style.display = 'none';
+      } else {
+        row.style.display = '';
+      }
+    });
+  }
 
   // 8. Ẩn ngay lập tức các nút gây lỗi (VD: Thêm danh mục) mà không bị độ trễ
   function hideSpecificButtonsInstantly() {
