@@ -19,7 +19,6 @@
       if (res && res.ok) {
         serverData = await res.json();
         updateBadgeWithServerData(serverData);
-        updateTopBannerWithServerData(serverData);
       }
     } catch (e) {
       console.log('Chưa kết nối được API server-info:', e.message);
@@ -52,31 +51,7 @@
 
   }
 
-  // 3.5. Tạo thanh banner ngang trên cùng để nhận biết Server Backend
-  function updateTopBannerWithServerData(data) {
-    if (!data || !data.node) return;
 
-    let banner = document.getElementById('backend-top-banner');
-    if (!banner) {
-      banner = document.createElement('div');
-      banner.id = 'backend-top-banner';
-      banner.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; background-color: #16a34a; color: #ffffff; text-align: center; padding: 4px 24px; font-weight: 700; font-size: 13px; z-index: 999999; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; letter-spacing: 0.5px;';
-      document.body.appendChild(banner);
-
-      // Đẩy nội dung web xuống để banner không che khuất phần đầu (header)
-      document.body.style.paddingTop = '26px';
-    }
-
-    // Phân tích tên OS và Server
-    let osName = data.node.os.toUpperCase().includes('WIN') ? 'WINDOWS' : 'CENTOS';
-    let serverName = data.node.serverSoftware.toUpperCase();
-    if (serverName.includes('IIS')) serverName = ' IIS';
-    else if (serverName.includes('APACHE')) serverName = ' APACHE';
-    else if (serverName.includes('NGINX')) serverName = ' NGINX';
-    else serverName = '';
-
-    banner.textContent = `[BACKEND: ${osName}${serverName} - ${data.node.serverIp}]`;
-  }
 
   // 4. Tạo giao diện Badge Đề tài 10
   function initProjectBadge() {
@@ -234,7 +209,6 @@
   // Khởi động khi DOM sẵn sàng
   window.addEventListener('DOMContentLoaded', () => {
     initProjectBadge();
-    fetchServerInfo();
     initHeaderNavigation();
     initCartPersistence();
     initAdminLoginEntry();
@@ -380,10 +354,10 @@
         const form = btn.closest('form');
         if (form) {
           // Chỉ lấy các input thực sự để nhập chữ/số (bỏ qua checkbox, radio)
-          const textInputs = Array.from(form.querySelectorAll('input')).filter(input => 
-              ['text', 'email', 'password', 'tel', 'number'].includes(input.type)
+          const textInputs = Array.from(form.querySelectorAll('input')).filter(input =>
+            ['text', 'email', 'password', 'tel', 'number'].includes(input.type)
           );
-          
+
           // Form Đăng ký luôn có ít nhất 3 ô nhập liệu chữ (Tên, SĐT, Mật khẩu)
           // Form Đăng nhập chỉ có 2 ô (SĐT, Mật khẩu)
           if (textInputs.length >= 3) {
