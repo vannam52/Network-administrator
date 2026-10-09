@@ -33,8 +33,10 @@ if ($method === 'GET') {
 
     if ($pdo !== null) {
         try {
-            // Sắp xếp ID giảm dần để hiển thị các mục mới nhất lên đầu
-            $stmt = $pdo->query("SELECT * FROM products ORDER BY id DESC");
+            // Ánh xạ cột từ DB của khách hàng sang định dạng React SPA mong muốn
+            // DB có: type, name, img, price, final_price, ...
+            // React cần: id, name, category, brand, img, price, stock
+            $stmt = $pdo->query("SELECT id, name, type as category, 'Apple' as brand, img, final_price as price, 10 as stock, final_price as cost FROM products ORDER BY id DESC");
             $rawProducts = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $products = [];
 
@@ -163,7 +165,7 @@ if ($method === 'POST') {
     // Ghi trực tiếp vào MySQL nếu có kết nối
     if ($pdo !== null) {
         try {
-            // Truy vấn lấy ID lớn nhất hiện tại để tránh trùng khóa chính dạng chuỗi
+            // Truy vấn lấy ID lớn nhất hiện tại để tránh trùng khóa chính
             $checkStmt = $pdo->query("SELECT id FROM products WHERE id LIKE 'IP%' ORDER BY id DESC LIMIT 1");
             $lastRow = $checkStmt->fetch(PDO::FETCH_ASSOC);
             if ($lastRow && preg_match('/IP(\d+)/', $lastRow['id'], $m)) {
@@ -171,16 +173,12 @@ if ($method === 'POST') {
                 $newId = $code;
             }
 
-            $stmt = $pdo->prepare("INSERT INTO products (id, code, name, brand, category, price, cost, stock, rating, is_new, imported, sold, img) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$newId, $code, $name, $brand, $category, $price, $cost, $stock, $rating, $isNew, $imported, $sold, $img]);
+            // Ép vào các cột thực tế của bảng products
+            $stmt = $pdo->prepare("INSERT INTO products (id, type, name, img, price, final_price, isNew, status, screen, ram, rom, camera) VALUES (?, ?, ?, ?, ?, ?, 1, 1, '-', 8, 128, '{}')");
+            $stmt->execute([$newId, 'IPHONE', $name, $img, $cost, $price]);
         } catch (Throwable $e) {
-            // Nếu bảng tự tăng INT hoặc trường id tự sinh, thử lại không chèn id thủ công
-            try {
-                $stmt = $pdo->prepare("INSERT INTO products (code, name, brand, category, price, cost, stock, rating, is_new, imported, sold, img) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$code, $name, $brand, $category, $price, $cost, $stock, $rating, $isNew, $imported, $sold, $img]);
-                $lastId = $pdo->lastInsertId();
-                if ($lastId) $newId = $lastId;
-            } catch (Throwable $e2) {}
+            // Bỏ qua nếu lỗi
+            error_log('Lỗi insert product: ' . $e->getMessage());
         }
     }
 
@@ -226,8 +224,9 @@ if ($method === 'PUT') {
     // Update MySQL
     if ($pdo !== null) {
         try {
-            $stmt = $pdo->prepare("UPDATE products SET name=?, price=?, stock=?, category=? WHERE id=?");
-            $stmt->execute([$input['name'] ?? '', $input['price'] ?? 0, $input['stock'] ?? 0, $input['category'] ?? '', $input['id']]);
+            // DB khách hàng có name, final_price. Category sẽ map tạm vào cột type.
+            $stmt = $pdo->prepare("UPDATE products SET name=?, final_price=?, type=? WHERE id=?");
+            $stmt->execute([$input['name'] ?? '', $input['price'] ?? 0, $input['category'] ?? 'IPHONE', $input['id']]);
         } catch (Throwable $e) {}
     }
 

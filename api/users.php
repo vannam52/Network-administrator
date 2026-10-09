@@ -29,7 +29,7 @@ if ($method === 'GET') {
 
     if ($pdo !== null) {
         try {
-            $stmt = $pdo->query("SELECT id, name, email, phone, created_at as joined, 0 as orders, 0 as locked FROM users ORDER BY created_at DESC");
+            $stmt = $pdo->query("SELECT id, hoTen as name, hoTen, email, sdt as phone, NULL as joined, 0 as orders, 0 as locked FROM users ORDER BY id DESC");
             $users = $stmt->fetchAll();
             $dataSource = 'MySQL Central Database (VM 4)';
         } catch (Throwable $e) {
@@ -64,12 +64,26 @@ if ($method === 'POST') {
     $content = file_get_contents($dataFile);
     $users = json_decode($content, true) ?: [];
 
+    $reqPhone = trim($input['phone'] ?? '');
+    $reqEmail = trim($input['email'] ?? '');
+
+    // Kiểm tra trùng lặp (nếu đã có trong JSON)
+    foreach ($users as $u) {
+        if (($reqPhone && $u['phone'] === $reqPhone) || ($reqEmail && $u['email'] === $reqEmail)) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Số điện thoại hoặc Email đã được đăng ký!']);
+            exit;
+        }
+    }
+
     $newId = 'KH' . str_pad((string)(count($users) + 1), 3, '0', STR_PAD_LEFT);
+    $nameVal = trim($input['name'] ?? $input['hoTen'] ?? 'Khách hàng');
     $newUser = [
         'id' => $newId,
-        'name' => trim($input['name']),
-        'email' => trim($input['email'] ?? ''),
-        'phone' => trim($input['phone'] ?? ''),
+        'name' => $nameVal,
+        'hoTen' => $nameVal, // Bổ sung cho React SPA
+        'email' => $reqEmail,
+        'phone' => $reqPhone,
         'joined' => date('d/m/Y'),
         'orders' => 0,
         'locked' => false
@@ -78,7 +92,7 @@ if ($method === 'POST') {
     $savedToMySQL = false;
     if ($pdo !== null) {
         try {
-            $stmt = $pdo->prepare("INSERT INTO users (id, name, email, phone, password, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+            $stmt = $pdo->prepare("INSERT INTO users (hoTen, email, sdt, matKhau, role) VALUES (?, ?, ?, ?, 'customer')");
             
             // Xử lý email rỗng để không bị lỗi UNIQUE của MySQL
             $safeEmail = trim($newUser['email']);
@@ -87,7 +101,6 @@ if ($method === 'POST') {
             }
 
             $stmt->execute([
-                $newUser['id'],
                 $newUser['name'],
                 $safeEmail,
                 $newUser['phone'],

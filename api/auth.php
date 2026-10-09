@@ -28,16 +28,23 @@ if (empty($phone) || empty($password)) {
 // 1. Kiểm tra trong MySQL trước
 if ($pdo !== null) {
     try {
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE phone = ? OR email = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE sdt = ? OR email = ? LIMIT 1");
         $stmt->execute([$phone, $phone]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user) {
-            // Verify password
-            if (password_verify($password, $user['password']) || $password === $user['password']) {
-                // Xóa password trước khi trả về frontend để bảo mật
-                unset($user['password']);
-                echo json_encode(['status' => 'success', 'user' => $user], JSON_UNESCAPED_UNICODE);
+            // Verify password (Cột mật khẩu trong phone_store là matKhau)
+            if (password_verify($password, $user['matKhau']) || $password === $user['matKhau']) {
+                // Ánh xạ lại các cột cho React SPA hiểu
+                $mappedUser = [
+                    'id' => $user['id'],
+                    'name' => $user['hoTen'],
+                    'hoTen' => $user['hoTen'],
+                    'email' => $user['email'],
+                    'phone' => $user['sdt'],
+                    'role' => $user['role']
+                ];
+                echo json_encode(['status' => 'success', 'user' => $mappedUser], JSON_UNESCAPED_UNICODE);
                 exit;
             } else {
                 echo json_encode(['status' => 'error', 'message' => 'Sai mật khẩu']);

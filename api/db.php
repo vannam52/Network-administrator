@@ -1,7 +1,7 @@
 <?php
 $dbHost = '100.72.145.103';
 $dbPort = '3306';
-$dbName = 'shop_db';
+$dbName = 'phone_store';
 $dbUser = 'shop_user';
 $dbPass = 'Shop@123456';
 

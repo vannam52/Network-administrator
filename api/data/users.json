@@ -1,5 +1,15 @@
 [
   {
+    "id": "KH003",
+    "name": "phu",
+    "email": "",
+    "phone": "phu@gmail.com",
+    "password": "12345",
+    "joined": "9/10/2026",
+    "orders": 0,
+    "locked": false
+  },
+  {
     "id": "KH002",
     "name": "phu",
     "email": "phu@gmail.com",

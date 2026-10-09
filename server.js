@@ -221,12 +221,29 @@ const server = http.createServer((req, res) => {
           if (fs.existsSync(usersFile)) {
             users = JSON.parse(fs.readFileSync(usersFile, 'utf8') || '[]');
           }
+
+          const reqPhone = (input.phone || '').trim();
+          const reqEmail = (input.email || '').trim();
+
+          // Kiểm tra trùng lặp
+          const isExist = users.some(u => 
+             (reqPhone && u.phone === reqPhone) || 
+             (reqEmail && u.email === reqEmail)
+          );
+
+          if (isExist) {
+            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+            return res.end(JSON.stringify({ status: 'error', message: 'Số điện thoại hoặc Email đã được đăng ký!' }));
+          }
+
           const newId = 'KH' + String(users.length + 1).padStart(3, '0');
+          const nameVal = (input.name || input.hoTen || 'Khách hàng').trim();
           const newUser = {
             id: newId,
-            name: (input.name || 'Khách hàng').trim(),
-            email: (input.email || '').trim(),
-            phone: (input.phone || '').trim(),
+            name: nameVal,
+            hoTen: nameVal, // Thêm trường hoTen để React SPA nhận diện
+            email: reqEmail,
+            phone: reqPhone,
             password: input.password || '123456', // Lưu tạm pass dạng plain text để test local
             joined: new Date().toLocaleDateString('vi-VN'),
             orders: 0,

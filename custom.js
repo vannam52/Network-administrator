@@ -248,14 +248,14 @@
     setInterval(() => {
       // Chỉ chạy khi ở trang Admin
       if (!window.location.pathname.includes('/admin')) return;
-      
+
       const searchInput = document.querySelector('input[placeholder*="Tìm theo mã, tên"]');
       const selectCategory = document.querySelector('button[aria-haspopup="menu"]'); // Nút Tất cả danh mục
-      
+
       // Nếu có ô search và chưa được gán sự kiện
       if (searchInput && !searchInput.dataset.hasVanillaSearch) {
         searchInput.dataset.hasVanillaSearch = "true";
-        
+
         searchInput.addEventListener('input', (e) => {
           const keyword = e.target.value.toLowerCase().trim();
           filterAdminTable(keyword, '');
@@ -365,7 +365,7 @@
     document.addEventListener('click', async (e) => {
       const btn = e.target.closest('button');
       if (!btn) return;
-      
+
       // XỬ LÝ ĐĂNG NHẬP
       if (btn.textContent.toLowerCase().includes('đăng nhập')) {
         const form = btn.closest('form') || btn.closest('.flex-col') || document.querySelector('form');
@@ -373,11 +373,70 @@
         return;
       }
 
+      // XỬ LÝ ĐĂNG KÝ (Thêm user vào Database)
+      const btnText = btn.textContent.toLowerCase();
+      if ((btnText.includes('đăng ký') || btnText.includes('tạo tài khoản')) && !btnText.includes('đăng nhập')) {
+        const form = btn.closest('form');
+        if (form) {
+          // Chỉ lấy các input thực sự để nhập chữ/số (bỏ qua checkbox, radio)
+          const textInputs = Array.from(form.querySelectorAll('input')).filter(input => 
+              ['text', 'email', 'password', 'tel', 'number'].includes(input.type)
+          );
+          
+          // Form Đăng ký luôn có ít nhất 3 ô nhập liệu chữ (Tên, SĐT, Mật khẩu)
+          // Form Đăng nhập chỉ có 2 ô (SĐT, Mật khẩu)
+          if (textInputs.length >= 3) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            const name = textInputs[0].value.trim();
+            const phone = textInputs[1].value.trim();
+            const password = textInputs[2].value.trim();
+
+            if (!name || !phone || !password) {
+              alert('Vui lòng nhập đầy đủ thông tin đăng ký!');
+              return;
+            }
+
+            const originalText = btn.textContent;
+            btn.textContent = 'Đang đăng ký...';
+            btn.disabled = true;
+
+            try {
+              const apiUrl = window.location.port === '3000' ? '/api/users' : '/api/users.php';
+              const res = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, phone, password })
+              });
+
+              if (res.ok) {
+                const data = await res.json();
+                alert('Đăng ký tài khoản thành công!');
+                localStorage.setItem('phone_store_user', JSON.stringify(data.user));
+                window.location.href = '/';
+              } else {
+                const errorData = await res.json();
+                alert('❌ ' + (errorData.message || 'Đăng ký thất bại, Email hoặc Số điện thoại đã tồn tại!'));
+                btn.textContent = originalText;
+                btn.disabled = false;
+              }
+            } catch (err) {
+              alert('Lỗi kết nối máy chủ!');
+              btn.textContent = originalText;
+              btn.disabled = false;
+            }
+            return;
+          }
+        }
+      }
+
       // XỬ LÝ THÊM SẢN PHẨM (Nút bị liệt của React)
       if (btn.textContent.toLowerCase().includes('thêm sản phẩm')) {
         e.preventDefault();
         e.stopPropagation();
-        
+
         // Xóa modal cũ nếu có
         const oldModal = document.getElementById('custom-add-product-modal');
         if (oldModal) oldModal.remove();
@@ -386,7 +445,7 @@
         const modal = document.createElement('div');
         modal.id = 'custom-add-product-modal';
         modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:999999; backdrop-filter: blur(4px);';
-        
+
         modal.innerHTML = `
             <div style="background:#fff; width:450px; border-radius:12px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); overflow:hidden;">
                 <div style="padding:16px 24px; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; background:#f9fafb;">
@@ -431,55 +490,55 @@
         const closeModal = () => modal.remove();
         document.getElementById('close-modal-btn').onclick = closeModal;
         document.getElementById('cancel-modal-btn').onclick = closeModal;
-        
+
         // Bấm ra ngoài modal để đóng
         modal.addEventListener('click', (ev) => {
-            if (ev.target === modal) closeModal();
+          if (ev.target === modal) closeModal();
         });
 
         // Xử lý lưu
-        document.getElementById('save-modal-btn').onclick = async function() {
-            const name = document.getElementById('modal-p-name').value.trim();
-            const price = document.getElementById('modal-p-price').value.trim();
-            const stock = document.getElementById('modal-p-stock').value.trim();
-            const cat = document.getElementById('modal-p-cat').value;
+        document.getElementById('save-modal-btn').onclick = async function () {
+          const name = document.getElementById('modal-p-name').value.trim();
+          const price = document.getElementById('modal-p-price').value.trim();
+          const stock = document.getElementById('modal-p-stock').value.trim();
+          const cat = document.getElementById('modal-p-cat').value;
 
-            if (!name || !price) {
-                alert('Vui lòng nhập Tên sản phẩm và Giá bán!');
-                return;
+          if (!name || !price) {
+            alert('Vui lòng nhập Tên sản phẩm và Giá bán!');
+            return;
+          }
+
+          this.textContent = 'Đang lưu...';
+          this.disabled = true;
+
+          const code = 'SP' + Math.floor(Math.random() * 10000);
+
+          try {
+            // Tự động gọi API chung (hỗ trợ cả Node.js và PHP)
+            const apiUrl = window.location.port === '3000' ? '/api/products' : '/api/products.php';
+            const res = await fetch(apiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: name,
+                price: price,
+                stock: stock,
+                code: code,
+                category: cat,
+                img: 'https://cdn.hoanghamobile.com/i/productlist/dsp/Uploads/2023/09/13/iphone-15-pro-max-natural-titanium-pure-back-iphone-15-pro-max-natural-titanium-pure-front-2up-screen-usen.png'
+              })
+            });
+
+            if (res.ok) {
+              alert('Thêm sản phẩm thành công!');
+              window.location.reload(); // Tải lại trang để React cập nhật danh sách
+            } else {
+              alert('Có lỗi xảy ra khi thêm sản phẩm!');
             }
-
-            this.textContent = 'Đang lưu...';
-            this.disabled = true;
-
-            const code = 'SP' + Math.floor(Math.random() * 10000);
-            
-            try {
-                // Tự động gọi API chung (hỗ trợ cả Node.js và PHP)
-                const apiUrl = window.location.port === '3000' ? '/api/products' : '/api/products.php';
-                const res = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: name,
-                        price: price,
-                        stock: stock,
-                        code: code,
-                        category: cat,
-                        img: 'https://cdn.hoanghamobile.com/i/productlist/dsp/Uploads/2023/09/13/iphone-15-pro-max-natural-titanium-pure-back-iphone-15-pro-max-natural-titanium-pure-front-2up-screen-usen.png'
-                    })
-                });
-                
-                if (res.ok) {
-                    alert('Thêm sản phẩm thành công!');
-                    window.location.reload(); // Tải lại trang để React cập nhật danh sách
-                } else {
-                    alert('Có lỗi xảy ra khi thêm sản phẩm!');
-                }
-            } catch (err) {
-                alert('Lỗi kết nối đến Server!');
-            }
-            closeModal();
+          } catch (err) {
+            alert('Lỗi kết nối đến Server!');
+          }
+          closeModal();
         };
       }
     }, true);
