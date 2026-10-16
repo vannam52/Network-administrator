@@ -204,8 +204,8 @@ graph LR
     VM2 -->|Port 3306| VM4
     VM3 -->|Port 3306| VM4
     
-    %% Flow FTP Deployment
-    VPN -.->|Cập nhật Code qua FTP (Port 21)| VM5
+       %% Flow FTP Deployment
+    VPN -.->|Cập nhật Code qua FTP - Port 21| VM5
     VM5 -.->|Mount / Đồng bộ code| VM2
     VM5 -.->|Mount / Đồng bộ code| VM3
     
