@@ -136,13 +136,13 @@ flowchart TD
         API --> DB_PHP["Trình kết nối CSDL<br>(api/db.php)"]
         DB_PHP --> DB_Check{"Ping Socket tới<br>VM 4:3306"}
         
-        DB_Check -->|Kết nối thành công| MySQL[("🗄️ MySQL Database<br>(VM 4)") ]
+        DB_Check -->|Kết nối thành công| MySQL[("🗄️ MySQL Database<br>(VM 4)")]
         DB_Check -->|Lỗi Timeout hoặc Refused| Fallback["Kích hoạt cờ dbError<br>Ghi Log hệ thống"]
         
-        Fallback --> JSON[("📁 File dự phòng JSON<br>(api/data/*.json)") ]
+        Fallback --> JSON[("📁 File dự phòng JSON<br>(api/data/*.json)")]
         
-        MySQL -->|Dữ liệu chuẩn| Format["Đóng gói JSON Response<br>{status, source: MySQL}"]
-        JSON -->|Dữ liệu backup| Format["Đóng gói JSON Response<br>{status, source: JSON Local}"]
+        MySQL -->|Dữ liệu chuẩn| Format["Đóng gói JSON Response"]
+        JSON -->|Dữ liệu backup| Format
     end
     
     Format -->|Trả về Status 200| Client
@@ -156,30 +156,44 @@ flowchart TD
 ## 🌐 V. SƠ ĐỒ KIẾN TRÚC MẠNG & LUỒNG HOẠT ĐỘNG (WORKFLOW)
 
 ### 1. Sơ đồ kiến trúc mạng (Network Topology)
-Mô tả hạ tầng vật lý và kết nối mạng giữa 5 máy ảo thông qua Tailscale VPN.
+Mô tả hạ tầng vật lý và kết nối mạng giữa 5 máy ảo thông qua mạng phủ **Tailscale VPN Mesh** (`100.64.0.0/10`).
+
+![Sơ đồ kiến trúc mạng](./SoDoMang.png)
+
+#### 📋 Bảng quy hoạch địa chỉ IP & Phân vai trò máy chủ
+| Máy ảo | Hostname (Tailscale) | Hệ điều hành | Địa chỉ IP (Tailscale) | Dịch vụ & Port | Vai trò trong hệ thống |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **VM 1** | `localhost-0` | CentOS 7 | `100.73.121.85` | NGINX (`80`, `443`) | Reverse Proxy & Load Balancer (Round-Robin) |
+| **VM 2** | `web-centos` | CentOS 7 | `100.86.108.58` | Apache (`80`) | Backend Web Server 1 (Linux Multi-hosting) |
+| **VM 3** | `win-7n4gk2a89pl` | Windows Server | `100.109.69.94` | IIS (`80`) | Backend Web Server 2 (Windows Multi-hosting) |
+| **VM 4** | `thanhphat-virtualbox` | Linux | `100.72.145.103` | MySQL (`3306`) | Database Server (`shop_db` / `phone_store`) & Monitor |
+| **VM 5** | `kali` | Linux | `100.103.200.80` | vsftpd (`21`) | Isolated FTP Server (Cô lập & Đồng bộ mã nguồn) |
+
+<details>
+<summary><b>🔍 Bấm để xem chi tiết Luồng Giao thức & Quản trị (Mermaid Flowchart)</b></summary>
 
 ```mermaid
-graph TD
-    VPN(("🌐 Tailscale VPN Mesh<br>(Remote Access / Quản trị)"))
-    Dev["👨‍💻 Quản trị viên / Dev"] -->|Kết nối từ xa an toàn| VPN
+graph LR
+    VPN(("🌐 Tailscale VPN Mesh<br>(100.64.0.0/10)"))
+    Dev["👨💻 Quản trị viên / Dev"] -->|Kết nối từ xa an toàn| VPN
     
-    Client["💻 Khách truy cập<br>https://shop-ecommerce.local"] -->|HTTP 80 và HTTPS 443| VM1
+    Client["💻 Khách truy cập<br>https://shop-ecommerce.local"] -->|HTTP 80 / HTTPS 443| VM1
     
     subgraph "DMZ / GATEWAY"
-        VM1["🌐 VM 1: NGINX Load Balancer<br>Reverse Proxy & Phân tải"]
+        VM1["🌐 VM 1: NGINX Load Balancer<br>IP: 100.73.121.85"]
     end
     
     subgraph "BACKEND WEB SERVERS"
-        VM2["🐧 VM 2: Linux Web Server<br>[Server 1: Apache]"]
-        VM3["🪟 VM 3: Windows Web Server<br>[Server 2: IIS]"]
+        VM2["🐧 VM 2: Linux Web Server<br>Apache | IP: 100.86.108.58"]
+        VM3["🪟 VM 3: Windows Web Server<br>IIS | IP: 100.109.69.94"]
     end
     
     subgraph "DATA LAYER"
-        VM4["🗄️ VM 4: Database Server<br>MySQL (shop_db) & Monitor"]
+        VM4["🗄️ VM 4: Database Server<br>MySQL (3306) | IP: 100.72.145.103"]
     end
     
     subgraph "FILE STORAGE & DEPLOYMENT"
-        VM5["📦 VM 5: Isolated FTP Server<br>Cô lập file tải lên/Mã nguồn"]
+        VM5["📦 VM 5: Isolated FTP Server<br>vsftpd (21) | IP: 100.103.200.80"]
     end
 
     %% Flow Load Balancing
@@ -191,7 +205,7 @@ graph TD
     VM3 -->|Port 3306| VM4
     
     %% Flow FTP Deployment
-    VPN -.->|Cập nhật Code qua FTP| VM5
+    VPN -.->|Cập nhật Code qua FTP (Port 21)| VM5
     VM5 -.->|Mount / Đồng bộ code| VM2
     VM5 -.->|Mount / Đồng bộ code| VM3
     
