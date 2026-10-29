@@ -1,0 +1,46 @@
+[
+  {
+    "id": "#DH021",
+    "customerId": "1793275416761",
+    "customer": "Nam",
+    "phone": "0901 234 567",
+    "address": "45 Lê Lợi, P. Bến Nghé, Quận 1, TP.HCM",
+    "date": "29/10/2026",
+    "ngay": "2026-10-29",
+    "total": 19990000,
+    "status": "Mới đặt",
+    "rawStatus": "new",
+    "pay": "Tiền mặt",
+    "items": [
+      {
+        "id": "IP0024",
+        "name": "iPhone 12 256GB | Chính hãng",
+        "price": 19990000,
+        "qty": 1
+      }
+    ],
+    "processedBy": "Local Dev Server (VS Code)"
+  },
+  {
+    "id": "#DH021",
+    "customerId": "KH001",
+    "customer": "Kh�ch h�ng m?u",
+    "phone": "0987654321",
+    "address": "45 L� L?i",
+    "date": "29/10/2026",
+    "ngay": "2026-10-29",
+    "total": 21000000,
+    "status": "Mới đặt",
+    "rawStatus": "new",
+    "pay": "Ti?n m?t",
+    "items": [
+      {
+        "id": "IP0030",
+        "name": "iPhone 11 256GB",
+        "price": 21000000,
+        "qty": 1
+      }
+    ],
+    "processedBy": "Local Dev Server (VS Code)"
+  }
+]

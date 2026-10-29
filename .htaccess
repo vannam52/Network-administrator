@@ -2,6 +2,9 @@
   RewriteEngine On
   RewriteBase /
 
+  # 0. Proxy MinIO Storage sang api/storage.php
+  RewriteRule ^(storage|shop-assets)/(.*)$ api/storage.php?path=$0 [L,QSA]
+
   # 1. Tự động chuyển các request /api/xxx thành api/xxx.php nếu file tồn tại
   RewriteCond %{DOCUMENT_ROOT}/api/$1.php -f
   RewriteRule ^api/([a-zA-Z0-9_-]+)$ api/$1.php [L,QSA]

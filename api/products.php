@@ -23,15 +23,12 @@ if (!file_exists($dataFile)) {
     file_put_contents($dataFile, '[]');
 }
 
-/* ---------- Helpers cache JSON ---------- */
-
 function readCache($file) {
     $c = @file_get_contents($file);
     $d = json_decode($c ?: '[]', true);
     return is_array($d) ? $d : [];
 }
 
-// Chỉ ghi khi nội dung thật sự thay đổi, ghi qua file tạm để tránh file hỏng khi nhiều request cùng lúc
 function writeCache($file, $data) {
     $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     if (@file_get_contents($file) === $json) {
@@ -46,27 +43,48 @@ function writeCache($file, $data) {
     }
 }
 
+function normalizeProductType($categoryOrName) {
+    if (stripos($categoryOrName, 'samsung') !== false) return 'Samsung';
+    if (stripos($categoryOrName, 'xiaomi') !== false || stripos($categoryOrName, 'redmi') !== false) return 'Xiaomi';
+    return 'IP';
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 
 // ==========================================
 // 1. LẤY DANH SÁCH SẢN PHẨM (GET)
 // ==========================================
 if ($method === 'GET') {
-    $products    = [];
-    $dataSource  = 'Local JSON File';
-    $queryError  = null;
+    $products     = [];
+    $dataSource   = 'Local JSON File';
+    $queryError   = null;
     $loadedFromDb = false;
 
     if ($pdo !== null) {
         try {
-            $stmt = $pdo->query("SELECT id, name, type as category, img, final_price as price, 10 as stock, final_price as cost FROM products ORDER BY id DESC");
+            $sql = "SELECT p.id, p.name, p.type AS category, p.img, p.final_price AS price, p.price AS cost, p.isNew,
+                           COALESCE(nhap.total_imported, 10) AS imported,
+                           COALESCE(ban.total_sold, 0) AS sold
+                    FROM products p
+                    LEFT JOIN (
+                        SELECT productId, SUM(soluong) AS total_imported
+                        FROM phieu_nhap_chi_tiet
+                        GROUP BY productId
+                    ) nhap ON p.id = nhap.productId
+                    LEFT JOIN (
+                        SELECT productId, SUM(quantity) AS total_sold
+                        FROM chi_tiet_don_hang
+                        GROUP BY productId
+                    ) ban ON p.id = ban.productId
+                    WHERE p.status = 1
+                    ORDER BY p.id DESC";
+            $stmt = $pdo->query($sql);
             $rawProducts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             foreach ($rawProducts as $p) {
-                $imgUrl = $p['img'] ?? $p['image_url'] ?? $p['image'] ?? '';
+                $imgUrl = $p['img'] ?? '';
                 $name   = $p['name'] ?? '';
 
-                // Bỏ qua sản phẩm không phải Apple
                 if (stripos($name, 'samsung') !== false || stripos($name, 'xiaomi') !== false ||
                     stripos($name, 'oppo') !== false || stripos($name, 'vivo') !== false ||
                     stripos($name, 'redmi') !== false) {
@@ -75,52 +93,46 @@ if ($method === 'GET') {
 
                 $p['brand'] = 'Apple';
 
-                // Chuẩn hoá đường dẫn ảnh về dạng tuyệt đối (/img/...)
                 if (empty($imgUrl)) {
-                    if (stripos($name, '17') !== false || stripos($name, 'Air') !== false) {
-                        $imgUrl = '/img/iphone17.webp';
-                    } elseif (stripos($name, '16 Pro') !== false) {
-                        $imgUrl = '/img/iphone-16-pro-max.png';
-                    } elseif (stripos($name, '16') !== false) {
-                        $imgUrl = '/img/iphone-16-den-128.webp';
-                    } elseif (stripos($name, '15 Pro') !== false) {
-                        $imgUrl = '/img/iphone15-pro-max-titan-xanh.webp';
-                    } elseif (stripos($name, '15') !== false) {
-                        $imgUrl = '/img/iphone15-hong.webp';
-                    } elseif (stripos($name, '14 Pro') !== false) {
-                        $imgUrl = '/img/iphone-14-pro-max.png';
-                    } elseif (stripos($name, '14') !== false) {
-                        $imgUrl = '/img/iphone14.webp';
-                    } elseif (stripos($name, '13') !== false) {
-                        $imgUrl = '/img/iphone13.webp';
-                    } else {
-                        $shortName = urlencode(substr($name, 0, 15));
-                        $imgUrl = "https://placehold.co/400x400/f1f5f9/475569?text=" . $shortName;
-                    }
+                    $imgUrl = '/img/iphone17.webp';
                 } elseif (strpos($imgUrl, 'http') === 0) {
-                    $parsed = parse_url($imgUrl);
-                    if (isset($parsed['path'])) {
-                        $imgUrl = $parsed['path'];
+                    if (strpos($imgUrl, '100.72.145.103:9000') !== false) {
+                        $parsed = parse_url($imgUrl);
+                        $pathPart = $parsed['path'] ?? '';
+                        if (strpos($pathPart, '/storage/') === 0) {
+                            $imgUrl = $pathPart;
+                        } elseif (strpos($pathPart, '/shop-assets/') === 0) {
+                            $imgUrl = '/storage' . $pathPart;
+                        } else {
+                            $imgUrl = '/storage/' . ltrim($pathPart, '/');
+                        }
                     }
+                } elseif (strpos($imgUrl, 'storage/') === 0) {
+                    $imgUrl = '/' . $imgUrl;
+                } elseif (strpos($imgUrl, 'shop-assets/') === 0) {
+                    $imgUrl = '/storage/' . $imgUrl;
+                } elseif (strpos($imgUrl, '/shop-assets/') === 0) {
+                    $imgUrl = '/storage' . $imgUrl;
                 } elseif (strpos($imgUrl, '/') !== 0) {
-                    if (strpos($imgUrl, 'img/') !== 0) {
-                        $imgUrl = '/img/' . $imgUrl;
-                    } else {
-                        $imgUrl = '/' . $imgUrl;
-                    }
+                    $imgUrl = (strpos($imgUrl, 'img/') !== 0) ? ('/img/' . $imgUrl) : ('/' . $imgUrl);
                 }
 
-                $p['code']      = !empty($p['code']) ? $p['code'] : $p['id'];
+                $imported = (int)($p['imported'] ?? 10);
+                $sold     = (int)($p['sold'] ?? 0);
+                $stock    = max(0, $imported - $sold);
+
+                $p['code']      = $p['id'];
                 $p['image_url'] = $imgUrl;
                 $p['image']     = $imgUrl;
                 $p['img']       = $imgUrl;
-                $p['old']       = $p['old_price'] ?? $p['old'] ?? null;
-                $p['isNew']     = isset($p['is_new']) ? (bool)$p['is_new'] : ($p['isNew'] ?? true);
-                $p['price']     = (float)($p['price'] ?? 0);
-                $p['cost']      = (float)($p['cost'] ?? 0);
-                $p['stock']     = (int)($p['stock'] ?? 10);
-                $p['rating']    = (float)($p['rating'] ?? 5.0);
-                $p['sold']      = (int)($p['sold'] ?? 0);
+                $p['old']       = null;
+                $p['isNew']     = (bool)($p['isNew'] ?? false);
+                $p['price']     = (float)($p['price'] ?? $p['cost'] ?? 0);
+                $p['cost']      = (float)($p['cost'] ?? $p['price'] ?? 0);
+                $p['imported']  = $imported;
+                $p['sold']      = $sold;
+                $p['stock']     = $stock;
+                $p['rating']    = 5.0;
 
                 if (stripos($name, 'iPhone 17') !== false || stripos($name, 'iPhone Air') !== false) {
                     $p['category'] = 'iPhone 17 Series';
@@ -138,16 +150,13 @@ if ($method === 'GET') {
 
             $dataSource   = 'MySQL Central Database (VM 4)';
             $loadedFromDb = true;
-
-            // Đồng bộ cache JSON (chỉ ghi khi có thay đổi)
             writeCache($dataFile, $products);
         } catch (Throwable $e) {
-            $queryError = $e->getMessage();
+            $queryError   = $e->getMessage();
             $loadedFromDb = false;
         }
     }
 
-    // Dự phòng: đọc từ JSON cục bộ nếu MySQL không dùng được
     if (!$loadedFromDb) {
         $products = readCache($dataFile);
         if ($queryError === null) {
@@ -180,54 +189,50 @@ if ($method === 'POST') {
 
     $name     = trim($input['name']);
     $brand    = $input['brand'] ?? 'Apple';
-    $category = $input['category'] ?? 'Điện thoại';
-    $price    = (float)($input['price'] ?? 0);
-    $cost     = (float)($input['cost'] ?? 0);
+    $category = $input['category'] ?? 'iPhone 17 Series';
+    $price    = (int)round((float)($input['price'] ?? 0));
+    $cost     = (int)round((float)($input['cost'] ?? $price));
     $stock    = (int)($input['stock'] ?? 10);
-    $rating   = 5.0;
-    $imported = $stock;
-    $sold     = 0;
-    $img      = $input['img'] ?? $input['image_url'] ?? '/img/iphone17.webp';
-    if (strpos($img, 'http') !== 0 && strpos($img, '/') !== 0) {
-        $img = '/' . $img;
-    }
+    $img      = $input['img'] ?? $input['image_url'] ?? 'img/iphone17.webp';
+    $dbType   = normalizeProductType($name . ' ' . $category);
 
-    $products   = readCache($dataFile);
-    $nextNum    = count($products) + 1;
-    $defaultCode = 'IP' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
-    $code  = !empty($input['code']) ? $input['code'] : $defaultCode;
-    $newId = $code;
+    $products    = readCache($dataFile);
+    $nextNum     = count($products) + 40;
+    $defaultCode = 'IP' . str_pad((string)$nextNum, 4, '0', STR_PAD_LEFT);
+    $newId       = !empty($input['code']) ? substr(trim($input['code']), 0, 10) : $defaultCode;
+    $dbErrorMsg  = null;
 
     if ($pdo !== null) {
         try {
-            $checkStmt = $pdo->query("SELECT id FROM products WHERE id LIKE 'IP%' ORDER BY id DESC LIMIT 1");
+            $checkStmt = $pdo->query("SELECT id FROM products WHERE id LIKE 'IP%' ORDER BY LENGTH(id) DESC, id DESC LIMIT 1");
             $lastRow = $checkStmt->fetch(PDO::FETCH_ASSOC);
             if ($lastRow && preg_match('/IP(\d+)/', $lastRow['id'], $m)) {
-                $code  = 'IP' . str_pad((int)$m[1] + 1, 4, '0', STR_PAD_LEFT);
-                $newId = $code;
+                $newId = 'IP' . str_pad((string)((int)$m[1] + 1), 4, '0', STR_PAD_LEFT);
             }
 
-            $stmt = $pdo->prepare("INSERT INTO products (id, type, name, img, price, final_price, isNew, status, screen, ram, rom, camera) VALUES (?, ?, ?, ?, ?, ?, 1, 1, '-', 8, 128, '{}')");
-            $stmt->execute([$newId, 'IPHONE', $name, $img, $cost, $price]);
+            $stmt = $pdo->prepare("INSERT INTO products (id, type, name, img, price, final_price, interest_rate, screen, ram, rom, isNew, refresh_rate, camera, status, monitor, vendor) VALUES (?, ?, ?, ?, ?, ?, 25, '6.3 inches', 8, 256, 1, '120', '[]', 1, 'Dynamic Island', 'NCC002')");
+            $stmt->execute([$newId, $dbType, $name, ltrim($img, '/'), max(0, $cost), max(0, $price)]);
         } catch (Throwable $e) {
-            error_log('Lỗi insert product: ' . $e->getMessage());
+            $dbErrorMsg = $e->getMessage();
         }
     }
 
+    $displayImg = (strpos($img, 'http') === 0 || strpos($img, '/') === 0) ? $img : ('/' . $img);
     $newProduct = [
-        'id' => $newId, 'code' => $code, 'name' => $name, 'brand' => $brand,
-        'category' => $category, 'price' => $price, 'cost' => $cost, 'stock' => $stock,
-        'rating' => $rating, 'isNew' => true, 'imported' => $imported, 'sold' => $sold,
-        'img' => $img, 'image' => $img, 'image_url' => $img,
+        'id' => $newId, 'code' => $newId, 'name' => $name, 'brand' => $brand,
+        'category' => $category, 'price' => (float)$price, 'cost' => (float)$cost, 'stock' => $stock,
+        'rating' => 5.0, 'isNew' => true, 'imported' => $stock, 'sold' => 0,
+        'img' => $displayImg, 'image' => $displayImg, 'image_url' => $displayImg,
     ];
 
     array_unshift($products, $newProduct);
     writeCache($dataFile, $products);
 
     echo json_encode([
-        'status'  => 'success',
-        'message' => 'Thêm sản phẩm thành công',
-        'product' => $newProduct,
+        'status'   => 'success',
+        'message'  => 'Thêm sản phẩm thành công',
+        'db_error' => $dbErrorMsg,
+        'product'  => $newProduct,
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -243,12 +248,16 @@ if ($method === 'PUT') {
         exit;
     }
 
+    $dbErrorMsg = null;
     if ($pdo !== null) {
         try {
-            $stmt = $pdo->prepare("UPDATE products SET name=?, final_price=?, type=? WHERE id=?");
-            $stmt->execute([$input['name'] ?? '', $input['price'] ?? 0, $input['category'] ?? 'IPHONE', $input['id']]);
+            $dbType   = normalizeProductType(($input['name'] ?? '') . ' ' . ($input['category'] ?? ''));
+            $priceVal = (int)round((float)($input['price'] ?? 0));
+            $costVal  = isset($input['cost']) ? (int)round((float)$input['cost']) : $priceVal;
+            $stmt = $pdo->prepare("UPDATE products SET name = ?, final_price = ?, price = ?, type = ? WHERE id = ?");
+            $stmt->execute([$input['name'] ?? '', $priceVal, $costVal, $dbType, $input['id']]);
         } catch (Throwable $e) {
-            error_log('Lỗi update product: ' . $e->getMessage());
+            $dbErrorMsg = $e->getMessage();
         }
     }
 
@@ -257,13 +266,14 @@ if ($method === 'PUT') {
         if ((string)$p['id'] === (string)$input['id']) {
             if (isset($input['name']))     $p['name']     = $input['name'];
             if (isset($input['price']))    $p['price']    = (float)$input['price'];
+            if (isset($input['cost']))     $p['cost']     = (float)$input['cost'];
             if (isset($input['stock']))    $p['stock']    = (int)$input['stock'];
             if (isset($input['category'])) $p['category'] = $input['category'];
         }
     }
     unset($p);
     writeCache($dataFile, $products);
-    echo json_encode(['status' => 'success']);
+    echo json_encode(['status' => 'success', 'db_error' => $dbErrorMsg]);
     exit;
 }
 
@@ -280,10 +290,14 @@ if ($method === 'DELETE') {
     if ($id) {
         if ($pdo !== null) {
             try {
-                $stmt = $pdo->prepare("DELETE FROM products WHERE id=?");
+                $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
                 $stmt->execute([$id]);
             } catch (Throwable $e) {
-                error_log('Lỗi delete product: ' . $e->getMessage());
+                // Nếu sản phẩm đã có trong đơn hàng/phiếu nhập (vướng ON DELETE RESTRICT), ẩn sản phẩm bằng status = 0
+                try {
+                    $softDel = $pdo->prepare("UPDATE products SET status = 0 WHERE id = ?");
+                    $softDel->execute([$id]);
+                } catch (Throwable $ignore) {}
             }
         }
         $products = readCache($dataFile);

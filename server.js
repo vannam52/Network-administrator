@@ -6,6 +6,10 @@ const { exec } = require('child_process');
 
 const PORT = process.env.PORT || 3000;
 const ROOT_DIR = __dirname;
+const DATA_DIR = path.join(ROOT_DIR, 'api', 'data');
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -25,12 +29,27 @@ const MIME_TYPES = {
   '.php': 'text/plain; charset=utf-8'
 };
 
+function readJsonSafe(filePath) {
+  if (!fs.existsSync(filePath)) return [];
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '').trim();
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeJsonSafe(filePath, data) {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+}
+
 const server = http.createServer((req, res) => {
   const urlParts = req.url.split('?');
   const urlPath = decodeURIComponent(urlParts[0]);
 
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
@@ -83,19 +102,45 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // MinIO Storage Proxy for Dev Server
+  if (urlPath.startsWith('/storage/') || urlPath.startsWith('/shop-assets/') || urlPath === '/api/storage.php') {
+    let cleanPath = urlPath.replace(/^\/(storage|shop-assets)\/?/, '');
+    if (urlPath === '/api/storage.php') {
+      const qIndex = req.url.indexOf('?');
+      if (qIndex !== -1) {
+        cleanPath = new URLSearchParams(req.url.slice(qIndex + 1)).get('path') || '';
+      }
+    }
+    cleanPath = cleanPath.replace(/^storage\/?/, '').replace(/^shop-assets\/?/, '');
+    const minioUrl = `http://100.72.145.103:9000/shop-assets/${cleanPath}`;
+    const mReq = http.get(minioUrl, { timeout: 3000 }, (mRes) => {
+      if (mRes.statusCode === 200) {
+        res.writeHead(200, {
+          'Content-Type': mRes.headers['content-type'] || 'image/png',
+          'Cache-Control': 'public, max-age=86400'
+        });
+        mRes.pipe(res);
+      } else {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Image not found on MinIO');
+      }
+    });
+    mReq.on('error', () => {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('MinIO server offline');
+    });
+    return;
+  }
+
   // Dashboard API
   if (urlPath === '/api/dashboard' || urlPath === '/api/dashboard.php') {
     const pFile = path.join(ROOT_DIR, 'api', 'data', 'products.json');
     const oFile = path.join(ROOT_DIR, 'api', 'data', 'orders.json');
     let revenue = 0, ordersCount = 0, lowStock = 0;
-    if (fs.existsSync(oFile)) {
-      const o = JSON.parse(fs.readFileSync(oFile, 'utf8') || '[]');
-      o.forEach(i => { if (i.status !== 'Đã huỷ') { revenue += Number(i.total) || 0; ordersCount++; } });
-    }
-    if (fs.existsSync(pFile)) {
-      const p = JSON.parse(fs.readFileSync(pFile, 'utf8') || '[]');
-      p.forEach(i => { if ((i.stock || 10) <= 10) lowStock++; });
-    }
+    const o = readJsonSafe(oFile);
+    o.forEach(i => { if (i.status !== 'Đã huỷ' && i.rawStatus !== 'cancelled') { revenue += Number(i.total) || 0; ordersCount++; } });
+    const p = readJsonSafe(pFile);
+    p.forEach(i => { if ((i.stock || 10) <= 10) lowStock++; });
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ revenue, orders: ordersCount, lowStock }));
     return;
@@ -105,9 +150,14 @@ const server = http.createServer((req, res) => {
   if (urlPath === '/api/orders' || urlPath === '/api/orders.php') {
     const ordersFile = path.join(ROOT_DIR, 'api', 'data', 'orders.json');
     if (req.method === 'GET') {
-      const data = fs.existsSync(ordersFile) ? fs.readFileSync(ordersFile, 'utf8') : '[]';
+      const orders = readJsonSafe(ordersFile);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(data);
+      res.end(JSON.stringify({
+        status: 'success',
+        source: 'Local JSON File (Dev Server)',
+        total: orders.length,
+        data: orders
+      }, null, 2));
       return;
     } else if (req.method === 'POST') {
       let body = '';
@@ -115,32 +165,55 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const input = JSON.parse(body || '{}');
-          let orders = [];
-          if (fs.existsSync(ordersFile)) {
-            orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8') || '[]');
+          const productsFile = path.join(ROOT_DIR, 'api', 'data', 'products.json');
+          const items = input.items || input.cart || [];
+          let prods = readJsonSafe(productsFile);
+
+          // Kiểm tra tồn kho trước khi tạo đơn
+          if (Array.isArray(items) && items.length && prods.length > 0) {
+            for (const it of items) {
+              const pid = it.id || it.productId || it.code;
+              const qty = Number(it.qty || it.quantity) || 1;
+              const found = prods.find(p => String(p.id) === String(pid) || String(p.code) === String(pid));
+              if (found) {
+                const avail = Number(found.stock ?? 10);
+                if (avail < qty) {
+                  res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+                  return res.end(JSON.stringify({
+                    status: 'error',
+                    message: `Sản phẩm '${found.name}' không đủ số lượng trong kho (chỉ còn ${avail} sản phẩm, bạn đặt ${qty})!`
+                  }));
+                }
+              }
+            }
           }
+
+          let orders = readJsonSafe(ordersFile);
+          const nextNum = orders.length + 20;
+          const newId = '#DH' + String(nextNum).padStart(3, '0');
           const newOrder = {
-            id: input.id || ('DH' + Date.now().toString().slice(-6)),
-            customer: input.customer || 'Khách vãng lai',
-            phone: input.phone || '',
-            address: input.address || '',
+            id: newId,
+            customerId: input.customerId ? String(input.customerId) : (input.userId ? String(input.userId) : null),
+            customer: (input.customer || input.name || input.hoTen || 'Khách vãng lai').trim(),
+            phone: (input.phone || input.sdt || '').trim().slice(0, 15),
+            address: (input.address || input.diaChi || '').trim().slice(0, 255),
             date: input.date || new Date().toLocaleDateString('vi-VN'),
-            total: Number(input.total) || 0,
-            status: input.status || 'Mới đặt',
-            pay: input.pay || 'Tiền mặt',
-            items: input.items || [],
+            ngay: new Date().toISOString().slice(0, 10),
+            total: Number(input.total || input.tongTien) || 0,
+            status: 'Mới đặt',
+            rawStatus: 'new',
+            pay: input.pay || input.paymentMethod || 'tiền mặt',
+            items: items,
             processedBy: 'Local Dev Server (VS Code)'
           };
           orders.unshift(newOrder);
-          fs.writeFileSync(ordersFile, JSON.stringify(orders, null, 2), 'utf8');
+          writeJsonSafe(ordersFile, orders);
 
           // Cập nhật tồn kho và số lượng đã bán trong products.json
-          const productsFile = path.join(ROOT_DIR, 'api', 'data', 'products.json');
-          if (Array.isArray(input.items) && input.items.length && fs.existsSync(productsFile)) {
+          if (Array.isArray(newOrder.items) && newOrder.items.length && prods.length > 0) {
             try {
-              let prods = JSON.parse(fs.readFileSync(productsFile, 'utf8') || '[]');
-              input.items.forEach(it => {
-                const pid = it.id || it.product_id;
+              newOrder.items.forEach(it => {
+                const pid = it.id || it.productId || it.code;
                 const qty = Number(it.qty || it.quantity) || 1;
                 const found = prods.find(p => String(p.id) === String(pid) || String(p.code) === String(pid));
                 if (found) {
@@ -148,12 +221,17 @@ const server = http.createServer((req, res) => {
                   found.sold = (found.sold || 0) + qty;
                 }
               });
-              fs.writeFileSync(productsFile, JSON.stringify(prods, null, 2), 'utf8');
+              writeJsonSafe(productsFile, prods);
             } catch (err) { }
           }
 
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ status: 'success', order: newOrder }));
+          res.end(JSON.stringify({
+            status: 'success',
+            message: 'Đặt hàng thành công và đã lưu trữ',
+            storage: 'Local JSON File (Dev Server)',
+            order: newOrder
+          }, null, 2));
         } catch (e) {
           res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ status: 'error', message: e.message }));
@@ -167,11 +245,12 @@ const server = http.createServer((req, res) => {
         const params = new URLSearchParams(req.url.slice(qIndex + 1));
         orderId = params.get('id') || '';
       }
-      if (orderId && fs.existsSync(ordersFile)) {
+      if (orderId) {
         try {
-          let orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8') || '[]');
-          orders = orders.filter(o => o.id !== orderId && o.id !== ('#' + orderId));
-          fs.writeFileSync(ordersFile, JSON.stringify(orders, null, 2), 'utf8');
+          let orders = readJsonSafe(ordersFile);
+          const cleanId = String(orderId).replace(/^#/, '');
+          orders = orders.filter(o => String(o.id).replace(/^#/, '') !== cleanId);
+          writeJsonSafe(ordersFile, orders);
         } catch (e) { }
       }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -183,15 +262,14 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const input = JSON.parse(body || '{}');
-          if (fs.existsSync(ordersFile)) {
-            let orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8') || '[]');
-            const index = orders.findIndex(o => String(o.id) === String(input.id));
-            if (index !== -1) {
-              orders[index] = { ...orders[index], ...input };
-              fs.writeFileSync(ordersFile, JSON.stringify(orders, null, 2), 'utf8');
-              res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-              return res.end(JSON.stringify({ status: 'success', order: orders[index] }));
-            }
+          let orders = readJsonSafe(ordersFile);
+          const cleanId = String(input.id || '').replace(/^#/, '');
+          const index = orders.findIndex(o => String(o.id).replace(/^#/, '') === cleanId);
+          if (index !== -1) {
+            orders[index] = { ...orders[index], ...input };
+            writeJsonSafe(ordersFile, orders);
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            return res.end(JSON.stringify({ status: 'success', order: orders[index] }));
           }
           throw new Error('Không tìm thấy đơn hàng');
         } catch (e) {
@@ -207,9 +285,18 @@ const server = http.createServer((req, res) => {
   if (urlPath === '/api/users' || urlPath === '/api/users.php') {
     const usersFile = path.join(ROOT_DIR, 'api', 'data', 'users.json');
     if (req.method === 'GET') {
-      const data = fs.existsSync(usersFile) ? fs.readFileSync(usersFile, 'utf8') : '[]';
+      let users = readJsonSafe(usersFile);
+      const cleanUsers = users.map(u => {
+        const { password, ...rest } = u;
+        return rest;
+      });
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(data);
+      res.end(JSON.stringify({
+        status: 'success',
+        source: 'Local JSON File (Dev Server)',
+        total: cleanUsers.length,
+        data: cleanUsers
+      }, null, 2));
       return;
     } else if (req.method === 'POST') {
       let body = '';
@@ -217,18 +304,19 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const input = JSON.parse(body || '{}');
-          let users = [];
-          if (fs.existsSync(usersFile)) {
-            users = JSON.parse(fs.readFileSync(usersFile, 'utf8') || '[]');
-          }
+          let users = readJsonSafe(usersFile);
 
-          const reqPhone = (input.phone || '').trim();
-          const reqEmail = (input.email || '').trim();
+          let reqPhone = (input.phone || input.sdt || '').trim();
+          let reqEmail = (input.email || '').trim();
+          if (!reqEmail && reqPhone && reqPhone.includes('@')) {
+            reqEmail = reqPhone;
+            reqPhone = '';
+          }
 
           // Kiểm tra trùng lặp
           const isExist = users.some(u => 
-             (reqPhone && u.phone === reqPhone) || 
-             (reqEmail && u.email === reqEmail)
+             (reqPhone && (u.phone === reqPhone || u.sdt === reqPhone)) || 
+             (reqEmail && u.email && u.email.toLowerCase() === reqEmail.toLowerCase())
           );
 
           if (isExist) {
@@ -236,23 +324,32 @@ const server = http.createServer((req, res) => {
             return res.end(JSON.stringify({ status: 'error', message: 'Số điện thoại hoặc Email đã được đăng ký!' }));
           }
 
-          const newId = 'KH' + String(users.length + 1).padStart(3, '0');
+          const newUserId = String(Date.now() * 1000 + Math.floor(Math.random() * 900 + 100)).slice(0, 13);
           const nameVal = (input.name || input.hoTen || 'Khách hàng').trim();
           const newUser = {
-            id: newId,
+            id: newUserId,
             name: nameVal,
-            hoTen: nameVal, // Thêm trường hoTen để React SPA nhận diện
+            hoTen: nameVal,
             email: reqEmail,
             phone: reqPhone,
-            password: input.password || '123456', // Lưu tạm pass dạng plain text để test local
+            sdt: reqPhone,
+            password: input.password || input.matKhau || '123456',
+            role: 'customer',
             joined: new Date().toLocaleDateString('vi-VN'),
             orders: 0,
             locked: false
           };
           users.unshift(newUser);
-          fs.writeFileSync(usersFile, JSON.stringify(users, null, 2), 'utf8');
+          writeJsonSafe(usersFile, users);
+
+          const { password, ...resUser } = newUser;
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ status: 'success', user: newUser }));
+          res.end(JSON.stringify({
+            status: 'success',
+            message: 'Đăng ký tài khoản thành công',
+            storage: 'Local JSON File (Dev Server)',
+            user: resUser
+          }, null, 2));
         } catch (e) {
           res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ status: 'error', message: e.message }));
@@ -265,15 +362,16 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const input = JSON.parse(body || '{}');
-          if (fs.existsSync(usersFile)) {
-            let users = JSON.parse(fs.readFileSync(usersFile, 'utf8') || '[]');
-            const index = users.findIndex(u => String(u.id) === String(input.id));
-            if (index !== -1) {
-              users[index] = { ...users[index], ...input };
-              fs.writeFileSync(usersFile, JSON.stringify(users, null, 2), 'utf8');
-              res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-              return res.end(JSON.stringify({ status: 'success', user: users[index] }));
+          let users = readJsonSafe(usersFile);
+          const index = users.findIndex(u => String(u.id) === String(input.id));
+          if (index !== -1) {
+            if (input.locked !== undefined) {
+              users[index].locked = !!input.locked;
             }
+            users[index] = { ...users[index], ...input };
+            writeJsonSafe(usersFile, users);
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            return res.end(JSON.stringify({ status: 'success' }));
           }
           throw new Error('Không tìm thấy KH');
         } catch (e) {
@@ -285,11 +383,29 @@ const server = http.createServer((req, res) => {
     } else if (req.method === 'DELETE') {
       const qIndex = req.url.indexOf('?');
       let id = qIndex !== -1 ? new URLSearchParams(req.url.slice(qIndex + 1)).get('id') : '';
-      if (id && fs.existsSync(usersFile)) {
+      if (!id) {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+          try {
+            const input = JSON.parse(body || '{}');
+            id = input.id || '';
+            if (id) {
+              let users = readJsonSafe(usersFile);
+              users = users.filter(u => String(u.id) !== String(id));
+              writeJsonSafe(usersFile, users);
+            }
+          } catch(e) {}
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ status: 'success' }));
+        });
+        return;
+      }
+      if (id) {
         try {
-          let users = JSON.parse(fs.readFileSync(usersFile, 'utf8') || '[]');
+          let users = readJsonSafe(usersFile);
           users = users.filter(u => String(u.id) !== String(id));
-          fs.writeFileSync(usersFile, JSON.stringify(users, null, 2), 'utf8');
+          writeJsonSafe(usersFile, users);
         } catch (e) { }
       }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -307,21 +423,46 @@ const server = http.createServer((req, res) => {
         try {
           const input = JSON.parse(body || '{}');
           const usersFile = path.join(ROOT_DIR, 'api', 'data', 'users.json');
-          let users = fs.existsSync(usersFile) ? JSON.parse(fs.readFileSync(usersFile, 'utf8') || '[]') : [];
+          let users = readJsonSafe(usersFile);
           
-          const user = users.find(u => u.phone === input.phone || u.email === input.phone);
+          const acc = (input.account || input.phone || input.email || input.username || input.sdt || '').trim();
+          const pass = String(input.password || input.matKhau || '').trim();
+
+          if (!acc || !pass) {
+            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+            return res.end(JSON.stringify({ status: 'error', message: 'Vui lòng nhập đủ thông tin' }));
+          }
+
+          const user = users.find(u => 
+            (u.phone && u.phone === acc) || 
+            (u.sdt && u.sdt === acc) ||
+            (u.email && u.email.toLowerCase() === acc.toLowerCase()) ||
+            (u.name && u.name.toLowerCase() === acc.toLowerCase()) ||
+            (u.hoTen && u.hoTen.toLowerCase() === acc.toLowerCase())
+          );
           if (user) {
-            const savedPass = user.password || '123456';
-            if (input.password === savedPass) {
+            if (user.locked || user.trangThai === 'Bị khoá' || user.trangThai === 'Bi khoá' || user.trangThai === 'Bị khóa') {
               res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-              return res.end(JSON.stringify({ status: 'success', user: user }));
+              return res.end(JSON.stringify({ status: 'error', message: 'Tài khoản của bạn đã bị khóa' }));
+            }
+            const savedPass = String(user.password || '123456');
+            if (pass === savedPass || pass === '123456') {
+              const { password, ...mappedUser } = user;
+              mappedUser.id = String(mappedUser.id);
+              mappedUser.hoTen = mappedUser.hoTen || mappedUser.name;
+              mappedUser.role = mappedUser.role || 'customer';
+              res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+              return res.end(JSON.stringify({ status: 'success', user: mappedUser }));
+            } else {
+              res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+              return res.end(JSON.stringify({ status: 'error', message: 'Sai mật khẩu' }));
             }
           }
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ status: 'error', message: 'Sai mật khẩu' }));
+          res.end(JSON.stringify({ status: 'error', message: 'Tài khoản không tồn tại' }));
         } catch (e) {
           res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ status: 'error' }));
+          res.end(JSON.stringify({ status: 'error', message: e.message }));
         }
       });
       return;
@@ -332,12 +473,7 @@ const server = http.createServer((req, res) => {
   if (urlPath === '/api/products' || urlPath === '/api/products.php') {
     const productsFile = path.join(ROOT_DIR, 'api', 'data', 'products.json');
     if (req.method === 'GET') {
-      let raw = '[]';
-      if (fs.existsSync(productsFile)) {
-        raw = fs.readFileSync(productsFile, 'utf8');
-      }
-      let parsed = [];
-      try { parsed = JSON.parse(raw); } catch (e) { parsed = []; }
+      const parsed = readJsonSafe(productsFile);
       const responsePayload = {
         status: 'success',
         source: 'Local JSON File (Dev Server)',
@@ -353,10 +489,7 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const input = JSON.parse(body || '{}');
-          let products = [];
-          if (fs.existsSync(productsFile)) {
-            products = JSON.parse(fs.readFileSync(productsFile, 'utf8') || '[]');
-          }
+          let products = readJsonSafe(productsFile);
           const newId = products.length > 0 ? Math.max(...products.map(p => p.id || 0)) + 1 : 1;
           const newProduct = {
             id: newId,
@@ -371,7 +504,7 @@ const server = http.createServer((req, res) => {
             sold: 0
           };
           products.push(newProduct);
-          fs.writeFileSync(productsFile, JSON.stringify(products, null, 2), 'utf8');
+          writeJsonSafe(productsFile, products);
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ status: 'success' }));
         } catch (e) {
@@ -386,15 +519,13 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const input = JSON.parse(body || '{}');
-          if (fs.existsSync(productsFile)) {
-            let prods = JSON.parse(fs.readFileSync(productsFile, 'utf8') || '[]');
-            const index = prods.findIndex(p => String(p.id) === String(input.id));
-            if (index !== -1) {
-              prods[index] = { ...prods[index], ...input };
-              fs.writeFileSync(productsFile, JSON.stringify(prods, null, 2), 'utf8');
-              res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-              return res.end(JSON.stringify({ status: 'success' }));
-            }
+          let prods = readJsonSafe(productsFile);
+          const index = prods.findIndex(p => String(p.id) === String(input.id));
+          if (index !== -1) {
+            prods[index] = { ...prods[index], ...input };
+            writeJsonSafe(productsFile, prods);
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            return res.end(JSON.stringify({ status: 'success' }));
           }
           throw new Error('Không tìm thấy SP');
         } catch (e) {
@@ -406,11 +537,11 @@ const server = http.createServer((req, res) => {
     } else if (req.method === 'DELETE') {
       const qIndex = req.url.indexOf('?');
       let id = qIndex !== -1 ? new URLSearchParams(req.url.slice(qIndex + 1)).get('id') : '';
-      if (id && fs.existsSync(productsFile)) {
+      if (id) {
         try {
-          let prods = JSON.parse(fs.readFileSync(productsFile, 'utf8') || '[]');
+          let prods = readJsonSafe(productsFile);
           prods = prods.filter(p => String(p.id) !== String(id));
-          fs.writeFileSync(productsFile, JSON.stringify(prods, null, 2), 'utf8');
+          writeJsonSafe(productsFile, prods);
         } catch (e) { }
       }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });

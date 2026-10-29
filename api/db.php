@@ -9,39 +9,27 @@ $pdo = null;
 $dbError = null;
 $dbTried = false;
 
-const DB_RETRY_AFTER = 15; // giây: sau khi lỗi, nghỉ bấy lâu mới thử lại
-$dbBreakerFile = __DIR__ . '/data/.db_down';
-
 // timeout đọc/ghi socket, tránh query treo vô hạn
-@ini_set('default_socket_timeout', '3');
-@ini_set('mysqlnd.net_read_timeout', '3');
+@ini_set('default_socket_timeout', '4');
+@ini_set('mysqlnd.net_read_timeout', '4');
 
 function getDatabaseConnection() {
-    global $pdo, $dbError, $dbTried, $dbBreakerFile;
+    global $pdo, $dbError, $dbTried;
     global $dbHost, $dbPort, $dbName, $dbUser, $dbPass;
 
     if ($dbTried) return $pdo;          // mỗi request chỉ thử 1 lần
     $dbTried = true;
-
-    // Vừa lỗi gần đây -> bỏ qua, dùng JSON ngay (không tốn 2s)
-    if (is_file($dbBreakerFile) && (time() - filemtime($dbBreakerFile)) < DB_RETRY_AFTER) {
-        $dbError = 'MySQL tạm bỏ qua (vừa lỗi trong ' . DB_RETRY_AFTER . 's gần đây)';
-        return null;
-    }
 
     try {
         $dsn = "mysql:host={$dbHost};port={$dbPort};dbname={$dbName};charset=utf8mb4";
         $pdo = new PDO($dsn, $dbUser, $dbPass, [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_TIMEOUT            => 1,   // timeout kết nối 1s
+            PDO::ATTR_TIMEOUT            => 3,   // timeout kết nối 3s an toàn cho Tailscale
         ]);
-        @unlink($dbBreakerFile);
     } catch (Throwable $e) {
         $pdo = null;
         $dbError = $e->getMessage();
-        if (!is_dir(dirname($dbBreakerFile))) @mkdir(dirname($dbBreakerFile), 0777, true);
-        @touch($dbBreakerFile);
     }
     return $pdo;
 }
@@ -55,7 +43,7 @@ function getDatabaseStatus() {
             'mode' => 'MySQL Remote (VM 4 - Tailscale)',
             'host' => "{$dbHost}:{$dbPort}",
             'database' => $dbName,
-            'message' => 'Đã kết nối thành công Database tập trung MySQL trên VM 4 (Thành Phát)'
+            'message' => 'Đã kết nối thành công Database tập trung MySQL trên VM 4 (Database Server)'
         ];
     }
     return [

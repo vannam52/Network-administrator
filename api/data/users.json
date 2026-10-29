@@ -1,0 +1,28 @@
+[
+  {
+    "id": "1793275416761",
+    "name": "Nam",
+    "hoTen": "Nam",
+    "email": "chenam134@gmail.com",
+    "phone": "",
+    "sdt": "",
+    "password": "123456",
+    "role": "customer",
+    "joined": "29/10/2026",
+    "orders": 0,
+    "locked": false
+  },
+  {
+    "id": "KH001",
+    "name": "Khách hàng mẫu",
+    "hoTen": "Khách hàng mẫu",
+    "email": "khachhang@gmail.com",
+    "phone": "0987654321",
+    "sdt": "0987654321",
+    "password": "123456",
+    "role": "customer",
+    "joined": "01/10/2026",
+    "orders": 0,
+    "locked": false
+  }
+]

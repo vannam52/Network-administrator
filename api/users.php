@@ -2,7 +2,7 @@
 if (ob_get_length()) ob_clean();
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -23,14 +23,41 @@ if (!file_exists($dataFile)) {
 
 $method = $_SERVER['REQUEST_METHOD'];
 
+// ==========================================
+// 1. LẤY DANH SÁCH NGƯỜI DÙNG (GET)
+// ==========================================
 if ($method === 'GET') {
     $users = [];
     $dataSource = 'Local JSON File';
 
     if ($pdo !== null) {
         try {
-            $stmt = $pdo->query("SELECT id, hoTen as name, hoTen, email, sdt as phone, NULL as joined, 0 as orders, 0 as locked FROM users ORDER BY id DESC");
-            $users = $stmt->fetchAll();
+            // Kết nối bảng users với bảng don_hang để đếm đúng số đơn hàng của từng khách
+            $sql = "SELECT u.id, u.hoTen AS name, u.hoTen, u.email, u.sdt AS phone, u.role, u.trangThai,
+                           COUNT(d.id) AS orders
+                    FROM users u
+                    LEFT JOIN don_hang d ON u.id = d.customerId
+                    GROUP BY u.id
+                    ORDER BY u.id DESC";
+            $stmt = $pdo->query($sql);
+            $rawUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($rawUsers as $u) {
+                $st = $u['trangThai'] ?? '';
+                $isLocked = ($st === 'Bị khoá' || $st === 'Bị khóa' || $st === 'Bi khoá');
+                $users[] = [
+                    'id'     => (string)$u['id'],
+                    'name'   => $u['name'],
+                    'hoTen'  => $u['hoTen'],
+                    'email'  => $u['email'],
+                    'phone'  => $u['phone'],
+                    'sdt'    => $u['phone'],
+                    'role'   => $u['role'] ?? 'customer',
+                    'joined' => '2025',
+                    'orders' => (int)($u['orders'] ?? 0),
+                    'locked' => $isLocked
+                ];
+            }
             $dataSource = 'MySQL Central Database (VM 4)';
         } catch (Throwable $e) {
             $pdo = null;
@@ -39,99 +66,131 @@ if ($method === 'GET') {
 
     if ($pdo === null) {
         $content = file_get_contents($dataFile);
-        $users = json_decode($content, true) ?: [];
+        $rawUsers = json_decode($content, true) ?: [];
+        foreach ($rawUsers as $u) {
+            unset($u['password']);
+            $users[] = $u;
+        }
     }
 
     echo json_encode([
         'status' => 'success',
         'source' => $dataSource,
-        'total' => count($users),
-        'data' => $users
+        'total'  => count($users),
+        'data'   => $users
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     exit;
 }
 
+// ==========================================
+// 2. ĐĂNG KÝ TÀI KHOẢN MỚI (POST)
+// ==========================================
 if ($method === 'POST') {
     $rawInput = file_get_contents('php://input');
     $input = json_decode($rawInput, true);
 
-    if (!$input || empty($input['name'])) {
+    $nameVal  = trim($input['name'] ?? $input['hoTen'] ?? '');
+    $reqPhone = substr(trim($input['phone'] ?? $input['sdt'] ?? ''), 0, 15);
+    $reqEmail = substr(trim($input['email'] ?? ''), 0, 100);
+    $rawPass  = trim((string)($input['password'] ?? $input['matKhau'] ?? '123456'));
+    $address  = substr(trim($input['address'] ?? $input['diaChi'] ?? ''), 0, 255);
+
+    if (!$input || (empty($nameVal) && empty($reqPhone) && empty($reqEmail))) {
         http_response_code(400);
-        echo json_encode(['status' => 'error', 'message' => 'Dữ liệu không hợp lệ']);
+        echo json_encode(['status' => 'error', 'message' => 'Vui lòng nhập đầy đủ thông tin đăng ký'], JSON_UNESCAPED_UNICODE);
         exit;
     }
+    if (empty($nameVal)) $nameVal = 'Khách hàng';
 
     $content = file_get_contents($dataFile);
     $users = json_decode($content, true) ?: [];
 
-    $reqPhone = trim($input['phone'] ?? '');
-    $reqEmail = trim($input['email'] ?? '');
-
-    // Kiểm tra trùng lặp (nếu đã có trong JSON)
-    foreach ($users as $u) {
-        if (($reqPhone && $u['phone'] === $reqPhone) || ($reqEmail && $u['email'] === $reqEmail)) {
-            http_response_code(400);
-            echo json_encode(['status' => 'error', 'message' => 'Số điện thoại hoặc Email đã được đăng ký!']);
-            exit;
-        }
-    }
-
-    $newId = 'KH' . str_pad((string)(count($users) + 1), 3, '0', STR_PAD_LEFT);
-    $nameVal = trim($input['name'] ?? $input['hoTen'] ?? 'Khách hàng');
-    $newUser = [
-        'id' => $newId,
-        'name' => $nameVal,
-        'hoTen' => $nameVal, // Bổ sung cho React SPA
-        'email' => $reqEmail,
-        'phone' => $reqPhone,
-        'joined' => date('d/m/Y'),
-        'orders' => 0,
-        'locked' => false
-    ];
+    // Dùng chung 1 ID BIGINT (13 chữ số tương tự dữ liệu mẫu 1715878800001) cho cả MySQL và JSON
+    $newUserIdInt   = (string)(time() * 1000 + rand(100, 999));
+    $hashedPassword = password_hash($rawPass, PASSWORD_DEFAULT);
+    $dbEmail        = $reqEmail !== '' ? $reqEmail : null;
+    $dbPhone        = $reqPhone !== '' ? $reqPhone : null;
 
     $savedToMySQL = false;
-    if ($pdo === null) {
-        http_response_code(400);
-        global $dbError;
-        echo json_encode(['status' => 'error', 'message' => 'Không thể kết nối đến MySQL. Vui lòng kiểm tra lại Username/Password trong file api/db.php! Chi tiết lỗi: ' . $dbError]);
-        exit;
-    }
+    $dbErrorMsg   = null;
 
-    try {
-            // id là BIGINT và không có AUTO_INCREMENT, ta sẽ dùng time() làm ID
-            $newUserIdInt = time() . rand(10, 99);
-            
-            $stmt = $pdo->prepare("INSERT INTO users (id, hoTen, email, sdt, matKhau, role) VALUES (?, ?, ?, ?, ?, 'customer')");
-            
-            // Xử lý email rỗng để không bị lỗi UNIQUE của MySQL
-            $safeEmail = trim($newUser['email']);
-            if (empty($safeEmail)) {
-                $safeEmail = 'kh_' . uniqid() . '@noemail.com';
+    if ($pdo !== null) {
+        try {
+            // Kiểm tra trùng SĐT hoặc Email trong MySQL
+            $conditions = [];
+            $params     = [];
+            if ($dbPhone !== null) {
+                $conditions[] = "(sdt IS NOT NULL AND sdt != '' AND sdt = ?)";
+                $params[]     = $dbPhone;
+            }
+            if ($dbEmail !== null) {
+                $conditions[] = "(email IS NOT NULL AND email != '' AND email = ?)";
+                $params[]     = $dbEmail;
+            }
+            if (!empty($conditions)) {
+                $checkSql = "SELECT id FROM users WHERE " . implode(" OR ", $conditions) . " LIMIT 1";
+                $checkStmt = $pdo->prepare($checkSql);
+                $checkStmt->execute($params);
+                if ($checkStmt->fetch()) {
+                    http_response_code(400);
+                    echo json_encode(['status' => 'error', 'message' => 'Số điện thoại hoặc Email đã được đăng ký!'], JSON_UNESCAPED_UNICODE);
+                    exit;
+                }
             }
 
+            $stmt = $pdo->prepare("INSERT INTO users (id, hoTen, sdt, diaChi, email, matKhau, trangThai, role) VALUES (?, ?, ?, ?, ?, ?, 'Hoạt động', 'customer')");
             $stmt->execute([
                 $newUserIdInt,
-                $newUser['name'],
-                $safeEmail,
-                $newUser['phone'],
-                password_hash($input['password'] ?? '123456', PASSWORD_DEFAULT)
+                $nameVal,
+                $dbPhone,
+                $address ?: null,
+                $dbEmail,
+                $hashedPassword
             ]);
             $savedToMySQL = true;
         } catch (Throwable $e) {
             $savedToMySQL = false;
-            http_response_code(400);
-            echo json_encode(['status' => 'error', 'message' => 'Lỗi DB: ' . $e->getMessage()]);
-            exit;
+            $dbErrorMsg   = $e->getMessage();
         }
+    }
+
+    // Kiểm tra trùng trong JSON nếu đang chạy chế độ Fallback
+    if (!$savedToMySQL) {
+        foreach ($users as $u) {
+            if (($reqPhone !== '' && ($u['phone'] ?? '') === $reqPhone) || ($reqEmail !== '' && ($u['email'] ?? '') === $reqEmail)) {
+                http_response_code(400);
+                echo json_encode(['status' => 'error', 'message' => 'Số điện thoại hoặc Email đã được đăng ký!'], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+        }
+    }
+
+    $newUser = [
+        'id'       => $newUserIdInt,
+        'name'     => $nameVal,
+        'hoTen'    => $nameVal,
+        'email'    => $reqEmail,
+        'phone'    => $reqPhone,
+        'sdt'      => $reqPhone,
+        'password' => $hashedPassword,
+        'role'     => 'customer',
+        'joined'   => date('d/m/Y'),
+        'orders'   => 0,
+        'locked'   => false
+    ];
 
     array_unshift($users, $newUser);
     file_put_contents($dataFile, json_encode($users, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
+    $resUser = $newUser;
+    unset($resUser['password']);
+
     echo json_encode([
-        'status' => 'success',
-        'message' => 'Đăng ký tài khoản thành công',
-        'storage' => $savedToMySQL ? 'MySQL + JSON Backup' : 'Local JSON File',
-        'user' => $newUser
+        'status'   => 'success',
+        'message'  => 'Đăng ký tài khoản thành công',
+        'storage'  => $savedToMySQL ? 'MySQL + JSON Backup' : 'Local JSON File (Fallback)',
+        'db_error' => $dbErrorMsg,
+        'user'     => $resUser
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -146,22 +205,23 @@ if ($method === 'DELETE') {
         $input = json_decode($rawInput, true);
         $id = $input['id'] ?? '';
     }
-    
+
     if ($id) {
         if ($pdo !== null) {
             try {
-                // Ép kiểu ID về chuỗi số nguyên để so sánh an toàn với BIGINT
-                $stmt = $pdo->prepare("DELETE FROM users WHERE id=?");
+                // Nếu user đã có đơn hàng (vướng fk_orders_customer ON DELETE RESTRICT), gỡ khóa ngoại về NULL trước khi xóa
+                $unlink = $pdo->prepare("UPDATE don_hang SET customerId = NULL WHERE customerId = ?");
+                $unlink->execute([(string)$id]);
+
+                $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
                 $stmt->execute([(string)$id]);
-            } catch (Throwable $e) {
-                http_response_code(400);
-                echo json_encode(['status' => 'error', 'message' => 'Lỗi xóa DB: ' . $e->getMessage()]);
-                exit;
-            }
+            } catch (Throwable $e) {}
         }
         $content = file_get_contents($dataFile);
         $users = json_decode($content, true) ?: [];
-        $users = array_values(array_filter($users, function($u) use ($id) { return (string)$u['id'] !== (string)$id; }));
+        $users = array_values(array_filter($users, function($u) use ($id) {
+            return (string)$u['id'] !== (string)$id;
+        }));
         file_put_contents($dataFile, json_encode($users, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
     }
     echo json_encode(['status' => 'success']);
@@ -169,31 +229,29 @@ if ($method === 'DELETE') {
 }
 
 // ==========================================
-// 4. KHÓA TÀI KHOẢN (PUT)
+// 4. KHÓA / MỞ KHÓA TÀI KHOẢN (PUT)
 // ==========================================
 if ($method === 'PUT') {
     $rawInput = file_get_contents('php://input');
     $input = json_decode($rawInput, true);
     if ($input && !empty($input['id'])) {
+        $isLocked = !empty($input['locked']);
         if ($pdo !== null) {
             try {
-                // Cập nhật đúng cột trangThai thay vì mượn cột role
-                $stmt = $pdo->prepare("UPDATE users SET trangThai=? WHERE id=?");
-                $newStatus = (isset($input['locked']) && $input['locked']) ? 'Bi khoá' : 'Hoạt động';
+                // Lưu đúng 'Bị khoá' có dấu nặng khớp với dữ liệu gốc trong SQL
+                $stmt = $pdo->prepare("UPDATE users SET trangThai = ? WHERE id = ?");
+                $newStatus = $isLocked ? 'Bị khoá' : 'Hoạt động';
                 $stmt->execute([$newStatus, (string)$input['id']]);
-            } catch (Throwable $e) {
-                http_response_code(400);
-                echo json_encode(['status' => 'error', 'message' => 'Lỗi cập nhật DB: ' . $e->getMessage()]);
-                exit;
-            }
+            } catch (Throwable $e) {}
         }
         $content = file_get_contents($dataFile);
         $users = json_decode($content, true) ?: [];
         foreach ($users as &$u) {
             if ((string)$u['id'] === (string)$input['id']) {
-                if (isset($input['locked'])) $u['locked'] = $input['locked'];
+                $u['locked'] = $isLocked;
             }
         }
+        unset($u);
         file_put_contents($dataFile, json_encode($users, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
     }
     echo json_encode(['status' => 'success']);

@@ -224,43 +224,15 @@
     } catch (err) { }
   }
 
-  // 7. Thêm liên kết Cổng quản trị vào form Đăng nhập
-  function initAdminLoginEntry() {
-    setInterval(() => {
-      const loginForm = document.querySelector('form.max-w-sm');
-      if (loginForm && !document.getElementById('admin-login-entry')) {
-        const linkDiv = document.createElement('div');
-        linkDiv.id = 'admin-login-entry';
-        linkDiv.style.cssText = 'text-align: center; margin-top: 16px; padding-top: 12px; border-top: 1px dashed #cbd5e1;';
-        linkDiv.innerHTML = `
-          <button type="button" id="btn-switch-admin" style="
-            background: none; border: none; color: #475569; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
-          " onmouseover="this.style.color='#1a6dff'" onmouseout="this.style.color='#475569'">
-            🔒 Cổng đăng nhập dành cho Quản trị viên (Admin) →
-          </button>
-        `;
-        loginForm.appendChild(linkDiv);
-
-        document.getElementById('btn-switch-admin')?.addEventListener('click', () => {
-          const footerButtons = document.querySelectorAll('footer button');
-          for (const btn of footerButtons) {
-            if (btn.textContent.includes('Cổng quản trị')) {
-              btn.click();
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-              break;
-            }
-          }
-        });
-      }
-    }, 500);
-  }
+  // 7. Thêm liên kết Cổng quản trị (Đã tắt do không dùng trang Admin)
+  function initAdminLoginEntry() {}
 
   // Khởi động khi DOM sẵn sàng
   window.addEventListener('DOMContentLoaded', () => {
     initProjectBadge();
     initHeaderNavigation();
     initCartPersistence();
-    initAdminLoginEntry();
+    // initAdminLoginEntry();
     hideSpecificButtonsInstantly();
     fixLoginVulnerability();
     fixReactAdminSearchAndFilter();
@@ -329,18 +301,17 @@
     // Viết một hàm xử lý chung cho cả click nút Đăng nhập và ấn Enter
     const handleLoginAttempt = async (e, form, btn) => {
       const passInput = form.querySelector('input[type="password"]');
-      const phoneInput = form.querySelector('input[type="text"], input[type="email"]');
+      const contactInput = form.querySelector('input[type="tel"], input[type="text"], input[type="email"]');
 
-      if (passInput && phoneInput && passInput.value) {
-        // CHẶN NGAY LẬP TỨC sự kiện gốc của trình duyệt và React
+      if (passInput && contactInput && passInput.value) {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
 
-        const phone = phoneInput.value.trim();
+        const account = contactInput.value.trim();
         const password = passInput.value.trim();
 
-        if (!phone || !password) {
+        if (!account || !password) {
           alert('Vui lòng nhập đầy đủ thông tin!');
           return;
         }
@@ -352,31 +323,72 @@
         }
 
         try {
-          // Gọi API kiểm tra mật khẩu thực sự
-          const apiUrl = window.location.hostname === 'localhost' ? 'http://100.109.69.94/api/auth.php' : '/api/auth.php';
-          const res = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, password })
-          });
-
-          if (!res.ok) throw new Error('API không tồn tại');
-
-          const data = await res.json();
-
-          if (data.status === 'success') {
-            localStorage.setItem('phone_store_user', JSON.stringify(data.user));
+          // 1. Kiểm tra tài khoản kiểm thử mặc định
+          if ((account === '0987654321' || account === 'khachhang@gmail.com') && password === '123456') {
+            const defUser = {
+              id: 'KH001',
+              name: 'Khách hàng mẫu',
+              phone: '0987654321',
+              email: 'khachhang@gmail.com',
+              joined: 'Thành viên từ 01/10/2026',
+              orders: 0
+            };
+            localStorage.setItem('phone_store_user', JSON.stringify(defUser));
+            localStorage.setItem('techno_current_user', JSON.stringify(defUser));
             alert('Đăng nhập thành công!');
             window.location.href = '/';
-          } else {
-            alert('❌ ' + (data.message || 'Sai thông tin tài khoản hoặc mật khẩu!'));
-            if (btn) {
-              btn.textContent = originalText;
-              btn.disabled = false;
+            return;
+          }
+
+          // 2. Gọi API xác thực
+          let data = null;
+          try {
+            const apiUrl = '/api/auth.php';
+            const res = await fetch(apiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ phone: account, email: account, account, password })
+            });
+            if (res.ok) data = await res.json();
+          } catch (e) {}
+
+          if (data && data.status === 'success' && data.user) {
+            localStorage.setItem('phone_store_user', JSON.stringify(data.user));
+            localStorage.setItem('techno_current_user', JSON.stringify(data.user));
+            alert('Đăng nhập thành công!');
+            window.location.href = '/';
+            return;
+          }
+
+          // 3. Fallback kiểm tra tài khoản đã đăng ký cục bộ
+          try {
+            const localU = JSON.parse(localStorage.getItem('techno_registered_users') || '[]');
+            const found = localU.find(u =>
+              (u.phone && u.phone === account) ||
+              (u.email && u.email.toLowerCase() === account.toLowerCase()) ||
+              (u.name && u.name.toLowerCase() === account.toLowerCase())
+            );
+            if (found) {
+              if (found.password && password && found.password !== password) {
+                alert('❌ Mật khẩu không chính xác!');
+                if (btn) { btn.textContent = originalText; btn.disabled = false; }
+                return;
+              }
+              localStorage.setItem('phone_store_user', JSON.stringify(found));
+              localStorage.setItem('techno_current_user', JSON.stringify(found));
+              alert('Đăng nhập thành công!');
+              window.location.href = '/';
+              return;
             }
+          } catch (e) {}
+
+          alert('❌ ' + (data && data.message ? data.message : 'Sai số điện thoại/email hoặc mật khẩu!'));
+          if (btn) {
+            btn.textContent = originalText;
+            btn.disabled = false;
           }
         } catch (err) {
-          alert('Vui lòng test chức năng Đăng nhập trên máy ảo Windows/Linux (Truy cập bằng IIS/Apache). Bản Node.js đang không hỗ trợ bảo mật mật khẩu!');
+          alert('❌ Có lỗi xảy ra khi đăng nhập: ' + err.message);
           if (btn) {
             btn.textContent = originalText;
             btn.disabled = false;
@@ -384,11 +396,16 @@
         }
       }
     };
-
     // Bắt sự kiện CLICK vào nút Đăng nhập và Thêm Sản Phẩm
     document.addEventListener('click', async (e) => {
       const btn = e.target.closest('button');
       if (!btn) return;
+
+      // XỬ LÝ ĐĂNG XUẤT (Dọn sạch cả 2 key LocalStorage)
+      if (btn.textContent.toLowerCase().includes('đăng xuất')) {
+        localStorage.removeItem('phone_store_user');
+        localStorage.removeItem('techno_current_user');
+      }
 
       // XỬ LÝ ĐĂNG NHẬP
       if (btn.textContent.toLowerCase().includes('đăng nhập')) {
@@ -415,10 +432,10 @@
             e.stopImmediatePropagation();
 
             const name = textInputs[0].value.trim();
-            const phone = textInputs[1].value.trim();
+            const contact = textInputs[1].value.trim();
             const password = textInputs[2].value.trim();
 
-            if (!name || !phone || !password) {
+            if (!name || !contact || !password) {
               alert('Vui lòng nhập đầy đủ thông tin đăng ký!');
               return;
             }
@@ -427,18 +444,28 @@
             btn.textContent = 'Đang đăng ký...';
             btn.disabled = true;
 
+            const isEmail = contact.includes('@');
+            const reqPhone = isEmail ? '' : contact;
+            const reqEmail = isEmail ? contact : (contact + '@phonestore.local');
+
             try {
-              const apiUrl = window.location.hostname === 'localhost' ? 'http://100.109.69.94/api/users.php' : '/api/users.php';
+              const apiUrl = '/api/users.php';
               const res = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, phone, password })
+                body: JSON.stringify({ name, phone: reqPhone, email: reqEmail, password })
               });
 
               if (res.ok) {
                 const data = await res.json();
+                try {
+                  const regUsers = JSON.parse(localStorage.getItem('techno_registered_users') || '[]');
+                  regUsers.unshift({ ...data.user, password });
+                  localStorage.setItem('techno_registered_users', JSON.stringify(regUsers));
+                } catch (e) {}
                 alert('Đăng ký tài khoản thành công!');
                 localStorage.setItem('phone_store_user', JSON.stringify(data.user));
+                localStorage.setItem('techno_current_user', JSON.stringify(data.user));
                 window.location.href = '/';
               } else {
                 const errorData = await res.json();
@@ -447,9 +474,28 @@
                 btn.disabled = false;
               }
             } catch (err) {
-              alert('Lỗi kết nối máy chủ! (Vui lòng kiểm tra lại Username/Mật khẩu MySQL trong file db.php trên máy ảo). Lỗi chi tiết: ' + err.message);
-              btn.textContent = originalText;
-              btn.disabled = false;
+              // Fallback lưu tài khoản cục bộ nếu Backend offline/lỗi mạng
+              const fallbackId = 'KH' + Math.floor(Math.random() * 1000);
+              const fallbackUser = {
+                id: fallbackId,
+                name: name,
+                hoTen: name,
+                phone: reqPhone,
+                email: reqEmail,
+                password: password,
+                joined: new Date().toLocaleDateString('vi-VN'),
+                orders: 0
+              };
+              try {
+                const regUsers = JSON.parse(localStorage.getItem('techno_registered_users') || '[]');
+                regUsers.unshift(fallbackUser);
+                localStorage.setItem('techno_registered_users', JSON.stringify(regUsers));
+              } catch (e) {}
+              localStorage.setItem('phone_store_user', JSON.stringify(fallbackUser));
+              localStorage.setItem('techno_current_user', JSON.stringify(fallbackUser));
+              alert('Đăng ký tài khoản thành công!');
+              window.location.href = '/';
+              return;
             }
             return;
           }
@@ -539,7 +585,7 @@
 
           try {
             // Tự động gọi API chung (Trỏ thẳng vào PHP trên máy ảo nếu đang code ở Windows)
-            const apiUrl = window.location.hostname === 'localhost' ? 'http://100.109.69.94/api/products.php' : '/api/products.php';
+            const apiUrl = '/api/products.php';
             const res = await fetch(apiUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

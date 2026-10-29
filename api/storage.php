@@ -11,9 +11,12 @@ if (!$path) {
 
 // Xây dựng URL gốc của MinIO
 $cleanPath = ltrim($path, '/');
-if (strpos($cleanPath, 'shop-assets') === 0) {
-    // Nếu trong CSDL đường dẫn bị thiếu tên bucket, tự động bổ sung
-    $cleanPath = 'bucket/' . $cleanPath;
+if (strpos($cleanPath, 'storage/') === 0) {
+    $cleanPath = substr($cleanPath, 8);
+}
+if (strpos($cleanPath, 'shop-assets/') !== 0 && $cleanPath !== 'shop-assets') {
+    // Tự động bổ sung bucket shop-assets nếu request chưa có
+    $cleanPath = 'shop-assets/' . $cleanPath;
 }
 $minioUrl = 'http://100.72.145.103:9000/' . $cleanPath;
 
