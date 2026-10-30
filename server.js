@@ -103,7 +103,7 @@ const server = http.createServer((req, res) => {
   }
 
   // MinIO Storage Proxy for Dev Server
-  if (urlPath.startsWith('/storage/') || urlPath.startsWith('/shop-assets/') || urlPath === '/api/storage.php') {
+  if (urlPath.startsWith('/storage/') || urlPath.startsWith('/shop-assets/') || urlPath.startsWith('/img/') || urlPath === '/api/storage.php') {
     let cleanPath = urlPath.replace(/^\/(storage|shop-assets)\/?/, '');
     if (urlPath === '/api/storage.php') {
       const qIndex = req.url.indexOf('?');
@@ -112,8 +112,16 @@ const server = http.createServer((req, res) => {
       }
     }
     cleanPath = cleanPath.replace(/^storage\/?/, '').replace(/^shop-assets\/?/, '');
+    if (urlPath.startsWith('/img/')) {
+      cleanPath = urlPath.replace(/^\//, '');
+    }
+
+    if (serveLocalImageFallback(cleanPath, res)) {
+      return;
+    }
+
     const minioUrl = `http://100.72.145.103:9000/shop-assets/${cleanPath}`;
-    const mReq = http.get(minioUrl, { timeout: 3000 }, (mRes) => {
+    const mReq = http.get(minioUrl, { timeout: 1500 }, (mRes) => {
       if (mRes.statusCode === 200) {
         res.writeHead(200, {
           'Content-Type': mRes.headers['content-type'] || 'image/png',
@@ -122,14 +130,39 @@ const server = http.createServer((req, res) => {
         mRes.pipe(res);
       } else {
         res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end('Image not found on MinIO');
+        res.end('Image not found');
       }
+    });
+    mReq.on('timeout', () => {
+      mReq.destroy();
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('MinIO Timeout');
     });
     mReq.on('error', () => {
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('MinIO server offline');
+      res.end('MinIO Error');
     });
     return;
+  }
+
+  function serveLocalImageFallback(cleanPath, res) {
+    const candidates = [
+      path.join(ROOT_DIR, 'storage', 'shop-assets', cleanPath),
+      path.join(ROOT_DIR, 'storage', 'shop-assets', cleanPath.replace(/^shop-assets\/?/, '')),
+      path.join(ROOT_DIR, 'storage', cleanPath),
+      path.join(ROOT_DIR, cleanPath)
+    ];
+
+    for (const localFile of candidates) {
+      if (fs.existsSync(localFile) && fs.statSync(localFile).isFile()) {
+        const ext = path.extname(localFile).toLowerCase();
+        const mime = MIME_TYPES[ext] || 'image/jpeg';
+        res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'public, max-age=86400' });
+        fs.createReadStream(localFile).pipe(res);
+        return true;
+      }
+    }
+    return false;
   }
 
   // Dashboard API
@@ -189,22 +222,46 @@ const server = http.createServer((req, res) => {
           }
 
           let orders = readJsonSafe(ordersFile);
+          const clientOrderId = input.id ? String(input.id).trim() : null;
+          const reqCustomer = (input.customer || input.name || input.hoTen || 'Khách vãng lai').trim();
+          const reqPhone = (input.phone || input.sdt || '').trim().slice(0, 15);
+          const reqTotal = Number(input.total || input.tongTien) || 0;
+
+          // Chặn trùng lặp đơn hàng do click liên tục trong vòng 4s
+          if (orders.length > 0) {
+            const recent = orders[0];
+            const isDuplicate = (
+              (clientOrderId && (String(recent.id) === clientOrderId || String(recent.id) === '#' + clientOrderId.replace(/^#/, ''))) ||
+              (recent.phone === reqPhone && recent.customer === reqCustomer && Number(recent.total) === reqTotal && (Date.now() - (recent.createdAtMs || 0)) < 4000)
+            );
+            if (isDuplicate) {
+              res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+              return res.end(JSON.stringify({
+                status: 'success',
+                message: 'Đơn hàng đã được tiếp nhận thành công',
+                storage: 'Anti-Duplicate Protection (Dev Server)',
+                order: recent
+              }, null, 2));
+            }
+          }
+
           const nextNum = orders.length + 20;
           const newId = '#DH' + String(nextNum).padStart(3, '0');
           const newOrder = {
             id: newId,
             customerId: input.customerId ? String(input.customerId) : (input.userId ? String(input.userId) : null),
-            customer: (input.customer || input.name || input.hoTen || 'Khách vãng lai').trim(),
-            phone: (input.phone || input.sdt || '').trim().slice(0, 15),
+            customer: reqCustomer,
+            phone: reqPhone,
             address: (input.address || input.diaChi || '').trim().slice(0, 255),
             date: input.date || new Date().toLocaleDateString('vi-VN'),
             ngay: new Date().toISOString().slice(0, 10),
-            total: Number(input.total || input.tongTien) || 0,
+            total: reqTotal,
             status: 'Mới đặt',
             rawStatus: 'new',
             pay: input.pay || input.paymentMethod || 'tiền mặt',
             items: items,
-            processedBy: 'Local Dev Server (VS Code)'
+            processedBy: 'Local Dev Server (VS Code)',
+            createdAtMs: Date.now()
           };
           orders.unshift(newOrder);
           writeJsonSafe(ordersFile, orders);
@@ -326,6 +383,7 @@ const server = http.createServer((req, res) => {
 
           const newUserId = String(Date.now() * 1000 + Math.floor(Math.random() * 900 + 100)).slice(0, 13);
           const nameVal = (input.name || input.hoTen || 'Khách hàng').trim();
+          const addrVal = (input.address || input.diaChi || '').trim();
           const newUser = {
             id: newUserId,
             name: nameVal,
@@ -333,6 +391,8 @@ const server = http.createServer((req, res) => {
             email: reqEmail,
             phone: reqPhone,
             sdt: reqPhone,
+            address: addrVal,
+            diaChi: addrVal,
             password: input.password || input.matKhau || '123456',
             role: 'customer',
             joined: new Date().toLocaleDateString('vi-VN'),
@@ -368,6 +428,9 @@ const server = http.createServer((req, res) => {
             if (input.locked !== undefined) {
               users[index].locked = !!input.locked;
             }
+            if (input.name) users[index].hoTen = input.name;
+            if (input.phone) users[index].sdt = input.phone;
+            if (input.address) users[index].diaChi = input.address;
             users[index] = { ...users[index], ...input };
             writeJsonSafe(usersFile, users);
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });

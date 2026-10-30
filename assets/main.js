@@ -16201,11 +16201,21 @@ function Ht({ title: e, onClose: t, children: n, footer: r, wide: i }) {
 }
 function Ut({ p: e, className: t }) {
   if (e && (e.img || e.image_url || e.image)) {
+    let src = e.img || e.image_url || e.image;
     return (0, A.jsx)("img", {
-      src: e.img || e.image_url || e.image,
+      src: src,
       alt: e.name,
       className: (t || "") + " object-contain",
       loading: "lazy",
+      onError: (ev) => {
+        ev.currentTarget.onerror = null;
+        let cSrc = String(src).replace(/^\/?(storage\/|shop-assets\/)?/, "");
+        if (!ev.currentTarget.src.includes('storage/shop-assets/')) {
+          ev.currentTarget.src = "/storage/shop-assets/" + cSrc;
+        } else {
+          ev.currentTarget.src = "/storage/shop-assets/img/iphone17.webp";
+        }
+      },
     });
   }
   let [n, r] = e.color || ["#1e293b", "#334155"],
@@ -16527,7 +16537,7 @@ function Gt({ go: e, cartCount: t, user: n, q: r, setQ: i }) {
               children: `iPhone Store`,
             }),
             (0, A.jsx)(`button`, {
-              onClick: () => e(`profile`),
+              onClick: () => e(n ? `profile` : `login`),
               className: `hover:text-ink`,
               children: `Đơn hàng`,
             }),
@@ -16634,7 +16644,6 @@ function Kt({ go: e }) {
                 className: `mt-3 max-w-xs text-sm leading-relaxed text-ink-3`,
                 children: `Điện thoại và thiết bị công nghệ chính hãng. Bảo hành 12 tháng, đổi trả trong 30 ngày.`,
               }),
-              null,
             ],
           }),
           t(`Dòng iPhone`, [
@@ -17573,9 +17582,25 @@ function Zt({ c: e }) {
       }))
       .filter((x) => x.p),
     n = t.reduce((e, t) => e + (t.p ? t.p.price * t.qty : 0), 0),
-    [r, i] = (0, C.useState)(`a1`),
+    uDefName = (e.user && (e.user.name || e.user.hoTen)) || "",
+    uDefPhone = (e.user && (e.user.phone || e.user.sdt) && !String(e.user.phone).includes("@")) ? String(e.user.phone || e.user.sdt) : "",
+    uDefAddr = (e.user && (e.user.address || e.user.diaChi)) || "",
+    [recvName, setRecvName] = (0, C.useState)(uDefName),
+    [recvPhone, setRecvPhone] = (0, C.useState)(uDefPhone),
+    [recvAddr, setRecvAddr] = (0, C.useState)(uDefAddr),
     [a, o] = (0, C.useState)(`cod`),
-    [s, c] = (0, C.useState)(!1);
+    [s, c] = (0, C.useState)(!1),
+    [isSubmitting, setIsSubmitting] = (0, C.useState)(!1);
+
+  (0, C.useEffect)(() => {
+    if (e.user) {
+      if (!recvName && (e.user.name || e.user.hoTen)) setRecvName(e.user.name || e.user.hoTen);
+      let ph = e.user.phone || e.user.sdt || "";
+      if (!recvPhone && ph && !ph.includes("@")) setRecvPhone(ph);
+      let ad = e.user.address || e.user.diaChi || "";
+      if (!recvAddr && ad) setRecvAddr(ad);
+    }
+  }, [e.user]);
   if (s)
     return (0, A.jsxs)(`div`, {
       className: `pop mx-auto max-w-lg px-5 py-24 text-center`,
@@ -17659,110 +17684,42 @@ function Zt({ c: e }) {
                       `Địa chỉ giao hàng`,
                     ],
                   }),
-                  (0, A.jsx)(`div`, {
-                    className: `grid gap-3 sm:grid-cols-2`,
+                  (0, A.jsxs)(`div`, {
+                    className: `grid gap-4 rounded-3xl border border-line bg-white p-6 shadow-soft sm:grid-cols-2`,
                     children: [
-                      [
-                        `a1`,
-                        `Nhà riêng`,
-                        (e.user?.name || "Khách hàng") +
-                          ` · ` +
-                          (e.user?.phone || "0901 234 567"),
-                        `45 Lê Lợi, P. Bến Nghé, Quận 1, TP.HCM`,
-                      ],
-                      [
-                        `a2`,
-                        `Công ty`,
-                        (e.user?.name || "Khách hàng") +
-                          ` · ` +
-                          (e.user?.phone || "0901 234 567"),
-                        `12 Phạm Văn Đồng, TP. Thủ Đức, TP.HCM`,
-                      ],
-                      [`new`, `Địa chỉ mới`, `Nhập thông tin bên dưới`, ``],
-                    ].map(([e, t, n, a]) =>
-                      (0, A.jsxs)(
-                        `label`,
-                        {
-                          className: l(r === e),
-                          children: [
-                            (0, A.jsx)(It, {
-                              label: ``,
-                              checked: r === e,
-                              onChange: () => i(e),
-                            }),
-                            (0, A.jsxs)(`div`, {
-                              className: `-ml-2`,
-                              children: [
-                                (0, A.jsxs)(`div`, {
-                                  className: `flex items-center gap-1.5 text-sm font-semibold`,
-                                  children: [(0, A.jsx)(Ne, { size: 14 }), t],
-                                }),
-                                (0, A.jsx)(`div`, {
-                                  className: `mt-1 text-xs text-ink-3`,
-                                  children: n,
-                                }),
-                                a &&
-                                  (0, A.jsx)(`div`, {
-                                    className: `mt-1 text-sm text-ink-2`,
-                                    children: a,
-                                  }),
-                              ],
-                            }),
-                          ],
-                        },
-                        e,
-                      ),
-                    ),
+                      (0, A.jsx)(N, {
+                        label: `Họ và tên người nhận *`,
+                        children: (0, A.jsx)(P, {
+                          required: !0,
+                          value: recvName,
+                          onChange: (ev) => setRecvName(ev.target.value),
+                          placeholder: `Ví dụ: Nguyễn Văn A`,
+                        }),
+                      }),
+                      (0, A.jsx)(N, {
+                        label: `Số điện thoại nhận hàng *`,
+                        children: (0, A.jsx)(P, {
+                          required: !0,
+                          value: recvPhone,
+                          onChange: (ev) => setRecvPhone(ev.target.value),
+                          placeholder: `Ví dụ: 0912345678`,
+                        }),
+                      }),
+                      (0, A.jsx)(`div`, {
+                        className: `sm:col-span-2`,
+                        children: (0, A.jsx)(N, {
+                          label: `Địa chỉ giao hàng cụ thể *`,
+                          hint: `Bắt buộc nhập rõ số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố`,
+                          children: (0, A.jsx)(P, {
+                            required: !0,
+                            value: recvAddr,
+                            onChange: (ev) => setRecvAddr(ev.target.value),
+                            placeholder: `Ví dụ: 123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh`,
+                          }),
+                        }),
+                      }),
+                    ],
                   }),
-                  r === `new` &&
-                    (0, A.jsxs)(`div`, {
-                      className: `pop mt-4 grid gap-4 rounded-2xl border border-line p-5 sm:grid-cols-2`,
-                      children: [
-                        (0, A.jsx)(N, {
-                          label: `Họ và tên`,
-                          children: (0, A.jsx)(P, {
-                            placeholder: `Nguyễn Văn A`,
-                          }),
-                        }),
-                        (0, A.jsx)(N, {
-                          label: `Số điện thoại`,
-                          children: (0, A.jsx)(P, {
-                            placeholder: `09xx xxx xxx`,
-                          }),
-                        }),
-                        (0, A.jsx)(N, {
-                          label: `Tỉnh / Thành phố`,
-                          children: (0, A.jsxs)(Pt, {
-                            children: [
-                              (0, A.jsx)(`option`, {
-                                children: `TP. Hồ Chí Minh`,
-                              }),
-                              (0, A.jsx)(`option`, { children: `Hà Nội` }),
-                              (0, A.jsx)(`option`, { children: `Đà Nẵng` }),
-                            ],
-                          }),
-                        }),
-                        (0, A.jsx)(N, {
-                          label: `Quận / Huyện`,
-                          children: (0, A.jsxs)(Pt, {
-                            children: [
-                              (0, A.jsx)(`option`, { children: `Quận 1` }),
-                              (0, A.jsx)(`option`, { children: `Quận 3` }),
-                              (0, A.jsx)(`option`, { children: `Thủ Đức` }),
-                            ],
-                          }),
-                        }),
-                        (0, A.jsx)(`div`, {
-                          className: `sm:col-span-2`,
-                          children: (0, A.jsx)(N, {
-                            label: `Địa chỉ cụ thể`,
-                            children: (0, A.jsx)(P, {
-                              placeholder: `Số nhà, tên đường, phường/xã`,
-                            }),
-                          }),
-                        }),
-                      ],
-                    }),
                 ],
               }),
               (0, A.jsxs)(`section`, {
@@ -17880,7 +17837,9 @@ function Zt({ c: e }) {
               (0, A.jsx)(M, {
                 size: `lg`,
                 className: `mt-5 w-full`,
-                onClick: () => {
+                disabled: isSubmitting,
+                onClick: async () => {
+                  if (isSubmitting) return;
                   let outOfStockItem = t.find((x) => {
                     let found = k.find((p) => String(p.id) === String(x.p.id) || String(p.code) === String(x.p.id));
                     let avail = found ? (found.stock ?? 10) : 10;
@@ -17892,6 +17851,22 @@ function Zt({ c: e }) {
                     alert(`Sản phẩm "${outOfStockItem.p.name}" không đủ số lượng trong kho (chỉ còn ${avail} sản phẩm, bạn đặt ${outOfStockItem.qty})!`);
                     return;
                   }
+                  let finalName = recvName.trim(),
+                    finalPhone = recvPhone.trim(),
+                    finalAddr = recvAddr.trim();
+                  if (!finalName) {
+                    alert("❌ Vui lòng nhập họ và tên người nhận hàng!");
+                    return;
+                  }
+                  if (!finalPhone) {
+                    alert("❌ Vui lòng nhập số điện thoại nhận hàng!");
+                    return;
+                  }
+                  if (!finalAddr) {
+                    alert("❌ Vui lòng nhập địa chỉ nhận hàng để chúng tôi giao sản phẩm!");
+                    return;
+                  }
+                  setIsSubmitting(true);
                   let cId = "DH" + Math.floor(100000 + Math.random() * 900000),
                     sFee = n > 5e5 ? 0 : 3e4,
                     pM =
@@ -17900,18 +17875,13 @@ function Zt({ c: e }) {
                         : a === `card`
                           ? `Thẻ tín dụng`
                           : `Tiền mặt`,
-                    adr =
-                      r === `a2`
-                        ? `12 Phạm Văn Đồng, TP. Thủ Đức, TP.HCM`
-                        : r === `a1`
-                          ? `45 Lê Lợi, P. Bến Nghé, Quận 1, TP.HCM`
-                          : `Địa chỉ nhận hàng`,
+                    adr = finalAddr,
                     oObj = {
                       id: cId,
                       customerId: e.user?.id || null,
-                      customer: e.user?.name || "Khách hàng",
-                      phone: e.user?.phone || "0901 234 567",
-                      address: adr,
+                      customer: finalName,
+                      phone: finalPhone,
+                      address: finalAddr,
                       date: new Date().toLocaleDateString(`vi-VN`),
                       total: n + sFee,
                       status: `Mới đặt`,
@@ -17926,9 +17896,9 @@ function Zt({ c: e }) {
                       id: cId,
                       customerId: e.user?.id || null,
                       userId: e.user?.id || null,
-                      customer: e.user?.name || "Khách hàng",
-                      phone: e.user?.phone || "0901 234 567",
-                      address: adr,
+                      customer: finalName,
+                      phone: finalPhone,
+                      address: finalAddr,
                       total: n + sFee,
                       pay: pM,
                       items: t.map((x) => ({
@@ -17943,6 +17913,7 @@ function Zt({ c: e }) {
                     let res;
                     try { res = await r.json(); } catch(err) { res = {}; }
                     if (!r.ok || (res && res.status === 'error')) {
+                      setIsSubmitting(false);
                       let errMsg = (res && res.message) ? res.message : `Lỗi ${r.status}: Không thể đặt hàng`;
                       alert('❌ Đặt hàng không thành công: ' + errMsg);
                       return;
@@ -17955,14 +17926,32 @@ function Zt({ c: e }) {
                         found.stock = Math.max(0, (found.stock || 10) - (x.qty || 1));
                       }
                     });
+                    if (e.user) {
+                      let updatedU = {
+                        ...e.user,
+                        name: finalName,
+                        hoTen: finalName,
+                        phone: finalPhone,
+                        sdt: finalPhone,
+                        address: finalAddr,
+                        diaChi: finalAddr,
+                      };
+                      try {
+                        localStorage.setItem("techno_current_user", JSON.stringify(updatedU));
+                        localStorage.setItem("phone_store_user", JSON.stringify(updatedU));
+                      } catch (err) {}
+                      e.setUser(updatedU);
+                    }
+                    setIsSubmitting(false);
                     c(oObj);
                     e.clear();
                   })
                   .catch(() => {
+                    setIsSubmitting(false);
                     alert('❌ Không thể kết nối đến máy chủ để tạo đơn hàng!');
                   });
                 },
-                children: `Xác nhận đặt hàng`,
+                children: isSubmitting ? `Đang xử lý đặt hàng...` : `Xác nhận đặt hàng`,
               }),
               (0, A.jsx)(M, {
                 variant: `ghost`,
@@ -18007,13 +17996,22 @@ function Qt({ c: e, mode: t, setMode: n }) {
             );
           } catch (e) {}
           let isEm = cnt.includes("@");
-          let uPhone = isEm ? "" : cnt;
-          let uEmail = isEm ? cnt : cnt + "@phonestore.local";
+          let isDigits = /^[\d\s\+\-\.]+$/.test(cnt);
+          if (!isEm && !isDigits) {
+            alert("Vui lòng nhập số điện thoại hoặc địa chỉ email hợp lệ (có chứa @)!");
+            return;
+          }
+          let uPhone = isEm ? "" : cnt.replace(/\s+/g, "");
+          let uEmail = isEm ? cnt.trim().toLowerCase() : "";
           let uObj = {
             id: "KH" + String(localU.length + 1).padStart(3, "0"),
             name: nm || "Khách hàng",
+            hoTen: nm || "Khách hàng",
             email: uEmail,
             phone: uPhone,
+            sdt: uPhone,
+            address: "",
+            diaChi: "",
             password: pw,
             joined: "Thành viên từ " + new Date().toLocaleDateString("vi-VN"),
             orders: 0,
@@ -18036,7 +18034,19 @@ function Qt({ c: e, mode: t, setMode: n }) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name: nm, phone: uPhone, email: uEmail, password: pw }),
-          }).catch(() => {});
+          })
+          .then((res) => res.json())
+          .then((d) => {
+            if (d && d.user && d.user.id) {
+              uObj.id = d.user.id;
+              try {
+                localStorage.setItem("techno_current_user", JSON.stringify(uObj));
+                localStorage.setItem("phone_store_user", JSON.stringify(uObj));
+              } catch (e) {}
+              e.setUser({ ...uObj });
+            }
+          })
+          .catch(() => {});
           alert("Đăng ký tài khoản thành công!");
           e.setUser(uObj);
           e.go(`home`);
@@ -18111,6 +18121,14 @@ function Qt({ c: e, mode: t, setMode: n }) {
           if (found.password && pw && found.password !== pw) {
             alert("Mật khẩu không chính xác!");
             return;
+          }
+          if (found.phone && found.phone.includes("@")) {
+            if (!found.email) found.email = found.phone;
+            found.phone = "";
+            found.sdt = "";
+          }
+          if (found.email && found.email.includes("phonestore.local")) {
+            found.email = "";
           }
           try {
             localStorage.setItem("techno_current_user", JSON.stringify(found));
@@ -18224,8 +18242,11 @@ function $t({ c: e }) {
               return {};
             }
           })(),
+    cleanEmail = (curUser.email && !curUser.email.includes("phonestore.local")) ? curUser.email : "",
+    cleanPhone = (curUser.phone && /^[\d\s\+\-\.]+$/.test(curUser.phone)) ? curUser.phone : "",
+    cleanAddr = curUser.address || curUser.diaChi || "",
     uName = curUser.name || curUser.hoTen || "Khách hàng",
-    uContact = curUser.phone || (curUser.email && !curUser.email.includes("phonestore.local") ? curUser.email : "Thành viên"),
+    uContact = cleanPhone || cleanEmail || "Thành viên",
     uJoined = curUser.joined || "Thành viên",
     uIn =
       uName
@@ -18235,6 +18256,10 @@ function $t({ c: e }) {
         .join("")
         .slice(-2)
         .toUpperCase() || "KH",
+    [pName, setPName] = (0, C.useState)(uName),
+    [pPhone, setPPhone] = (0, C.useState)(cleanPhone),
+    [pEmail, setPEmail] = (0, C.useState)(cleanEmail),
+    [pAddr, setPAddr] = (0, C.useState)(cleanAddr),
     [t, n] = (0, C.useState)(`orders`),
     uPh =
       curUser && curUser.phone
@@ -18255,6 +18280,18 @@ function $t({ c: e }) {
           )
         : [],
     r = myOrders;
+
+  (0, C.useEffect)(() => {
+    if (curUser) {
+      if (curUser.name || curUser.hoTen) setPName(curUser.name || curUser.hoTen);
+      let cP = (curUser.phone && /^[\d\s\+\-\.]+$/.test(curUser.phone)) ? curUser.phone : "";
+      if (cP) setPPhone(cP);
+      let cE = (curUser.email && !curUser.email.includes("phonestore.local")) ? curUser.email : "";
+      if (cE) setPEmail(cE);
+      let cA = curUser.address || curUser.diaChi || "";
+      if (cA) setPAddr(cA);
+    }
+  }, [curUser]);
 
   return (0, A.jsxs)(`div`, {
     className: `mx-auto max-w-6xl px-5 py-10`,
@@ -18343,7 +18380,7 @@ function $t({ c: e }) {
                                     children: [
                                       (0, A.jsxs)(`span`, {
                                         className: `font-semibold`,
-                                        children: [`#`, e.id],
+                                        children: [String(e.id || '').startsWith('#') ? '' : '#', e.id],
                                       }),
                                       (0, A.jsxs)(`span`, {
                                         className: `ml-3 text-sm text-ink-3`,
@@ -18422,29 +18459,45 @@ function $t({ c: e }) {
                     })),
               t === `info` &&
                 (0, A.jsxs)(`div`, {
-                  className: `grid max-w-xl gap-4 rounded-3xl border border-line p-6 shadow-soft sm:grid-cols-2`,
+                  className: `grid max-w-xl gap-4 rounded-3xl border border-line bg-white p-6 shadow-soft sm:grid-cols-2`,
                   children: [
                     (0, A.jsx)(N, {
-                      label: `Họ và tên`,
-                      children: (0, A.jsx)(P, { defaultValue: uName }),
+                      label: `Họ và tên *`,
+                      children: (0, A.jsx)(P, {
+                        value: pName,
+                        onChange: (ev) => setPName(ev.target.value),
+                        placeholder: `Nhập họ và tên`,
+                      }),
                     }),
                     (0, A.jsx)(N, {
                       label: `Số điện thoại`,
+                      hint: !pPhone ? `Chưa có SĐT, vui lòng nhập` : ``,
                       children: (0, A.jsx)(P, {
-                        defaultValue: curUser.phone || "0901 234 567",
+                        value: pPhone,
+                        onChange: (ev) => setPPhone(ev.target.value),
+                        placeholder: `Ví dụ: 0987654321`,
                       }),
                     }),
                     (0, A.jsx)(`div`, {
                       className: `sm:col-span-2`,
                       children: (0, A.jsx)(N, {
                         label: `Email`,
+                        hint: !pEmail ? `Chưa có email, vui lòng nhập` : ``,
                         children: (0, A.jsx)(P, {
-                          defaultValue:
-                            curUser.email ||
-                            (curUser.phone
-                              ? curUser.phone + "@phonestore.local"
-                              : "email@vidu.com"),
-                          disabled: !0,
+                          value: pEmail,
+                          onChange: (ev) => setPEmail(ev.target.value),
+                          placeholder: `Ví dụ: ten@gmail.com`,
+                        }),
+                      }),
+                    }),
+                    (0, A.jsx)(`div`, {
+                      className: `sm:col-span-2`,
+                      children: (0, A.jsx)(N, {
+                        label: `Địa chỉ nhận hàng mặc định`,
+                        children: (0, A.jsx)(P, {
+                          value: pAddr,
+                          onChange: (ev) => setPAddr(ev.target.value),
+                          placeholder: `Ví dụ: 123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP.HCM`,
                         }),
                       }),
                     }),
@@ -18453,45 +18506,122 @@ function $t({ c: e }) {
                       children: [
                         (0, A.jsx)(M, {
                           variant: `secondary`,
+                          onClick: () => {
+                            setPName(curUser.name || curUser.hoTen || "");
+                            setPPhone(cleanPhone);
+                            setPEmail(cleanEmail);
+                            setPAddr(cleanAddr);
+                          },
                           children: `Huỷ`,
                         }),
-                        (0, A.jsx)(M, { children: `Lưu thay đổi` }),
+                        (0, A.jsx)(M, {
+                          onClick: async () => {
+                            let nm = pName.trim(),
+                              ph = pPhone.trim(),
+                              em = pEmail.trim(),
+                              ad = pAddr.trim();
+                            if (!nm) {
+                              alert("Vui lòng nhập họ và tên!");
+                              return;
+                            }
+                            if (em && !em.includes("@")) {
+                              alert("Email không hợp lệ (phải chứa ký tự @)!");
+                              return;
+                            }
+                            let updatedUser = {
+                              ...curUser,
+                              name: nm,
+                              hoTen: nm,
+                              phone: ph,
+                              sdt: ph,
+                              email: em,
+                              address: ad,
+                              diaChi: ad,
+                            };
+                            try {
+                              localStorage.setItem("techno_current_user", JSON.stringify(updatedUser));
+                              localStorage.setItem("phone_store_user", JSON.stringify(updatedUser));
+                            } catch (err) {}
+                            e.setUser(updatedUser);
+                            try {
+                              await fetch("/api/users.php", {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(updatedUser),
+                              });
+                            } catch (err) {}
+                            alert("✅ Cập nhật thông tin cá nhân thành công!");
+                          },
+                          children: `Lưu thay đổi`,
+                        }),
                       ],
                     }),
                   ],
                 }),
               t === `addr` &&
-                (0, A.jsx)(`div`, {
-                  className: `grid gap-3 sm:grid-cols-2`,
+                (0, A.jsxs)(`div`, {
+                  className: `max-w-xl space-y-4`,
                   children: [
-                    [`Nhà riêng`, `45 Lê Lợi, P. Bến Nghé, Quận 1, TP.HCM`, !0],
-                    [`Công ty`, `12 Phạm Văn Đồng, TP. Thủ Đức, TP.HCM`, !1],
-                  ].map(([e, t, n]) =>
-                    (0, A.jsxs)(
-                      `div`,
-                      {
-                        className: `rounded-2xl border border-line p-5`,
-                        children: [
-                          (0, A.jsxs)(`div`, {
-                            className: `flex items-center justify-between font-semibold`,
-                            children: [
-                              e,
-                              n &&
-                                (0, A.jsx)(Rt, {
-                                  tone: `info`,
-                                  children: `Mặc định`,
-                                }),
-                            ],
-                          }),
-                          (0, A.jsx)(`p`, {
-                            className: `mt-2 text-sm text-ink-2`,
-                            children: t,
-                          }),
-                        ],
-                      },
-                      e,
-                    ),
-                  ),
+                    (0, A.jsxs)(`div`, {
+                      className: `rounded-3xl border border-line bg-white p-6 shadow-soft`,
+                      children: [
+                        (0, A.jsxs)(`div`, {
+                          className: `flex items-center justify-between font-semibold`,
+                          children: [
+                            `Địa chỉ nhận hàng`,
+                            pAddr.trim() && (0, A.jsx)(Rt, { tone: `info`, children: `Mặc định` }),
+                          ],
+                        }),
+                        (0, A.jsx)(`p`, {
+                          className: `mt-3 text-sm text-ink-2`,
+                          children: pAddr.trim()
+                            ? pAddr.trim()
+                            : `Bạn chưa lưu địa chỉ nhận hàng nào. Vui lòng nhập địa chỉ bên dưới và bấm "Lưu địa chỉ".`,
+                        }),
+                        (0, A.jsxs)(`div`, {
+                          className: `mt-5 space-y-3`,
+                          children: [
+                            (0, A.jsx)(N, {
+                              label: `Cập nhật địa chỉ nhận hàng`,
+                              children: (0, A.jsx)(P, {
+                                value: pAddr,
+                                onChange: (ev) => setPAddr(ev.target.value),
+                                placeholder: `Ví dụ: 123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh`,
+                              }),
+                            }),
+                            (0, A.jsx)(M, {
+                              onClick: async () => {
+                                let ad = pAddr.trim();
+                                if (!ad) {
+                                  alert("Vui lòng nhập địa chỉ nhận hàng!");
+                                  return;
+                                }
+                                let updatedUser = {
+                                  ...curUser,
+                                  address: ad,
+                                  diaChi: ad,
+                                };
+                                try {
+                                  localStorage.setItem("techno_current_user", JSON.stringify(updatedUser));
+                                  localStorage.setItem("phone_store_user", JSON.stringify(updatedUser));
+                                } catch (err) {}
+                                e.setUser(updatedUser);
+                                try {
+                                  await fetch("/api/users.php", {
+                                    method: "PUT",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify(updatedUser),
+                                  });
+                                } catch (err) {}
+                                alert("✅ Đã lưu địa chỉ nhận hàng thành công!");
+                              },
+                              children: `Lưu địa chỉ`,
+                            }),
+                          ],
+                        }),
+                      ],
+                    }),
+                  ],
                 }),
             ],
           }),
@@ -18560,7 +18690,6 @@ var tn = [
   [`a-cats`, `Danh mục`, dt],
   [`a-products`, `Sản phẩm`, Le],
   [`a-receipts`, `Phiếu nhập`, ve],
-  [`a-pricing`, `Giá bán`, Ve],
   [`a-orders`, `Đơn hàng`, tt],
   [`a-stock`, `Tồn kho`, Ct],
 ];
@@ -19246,17 +19375,48 @@ function un() {
 }
 function dn() {
   let [e, t] = (0, C.useState)(!1);
+  let [receiptList, setReceiptList] = (0, C.useState)(jt);
+  let [lines, setLines] = (0, C.useState)([
+    { prodId: (k[0] && k[0].id) || "IP0001", cost: (k[0] && k[0].cost) || 32291500, qty: 10 },
+  ]);
+  let handleFinishReceipt = () => {
+    let totalQty = lines.reduce((acc, l) => acc + Number(l.qty || 0), 0);
+    let totalVal = lines.reduce((acc, l) => acc + Number(l.qty || 0) * Number(l.cost || 0), 0);
+    let nextNum = receiptList.length + 13;
+    let newReceipt = {
+      id: `PN00` + String(nextNum).padStart(2, "0"),
+      date: new Date().toLocaleDateString("vi-VN"),
+      lines: lines.length,
+      qty: totalQty,
+      total: totalVal,
+      status: `Hoàn thành`,
+    };
+    lines.forEach((l) => {
+      let found = k.find((p) => String(p.id) === String(l.prodId) || String(p.code) === String(l.prodId));
+      if (found) {
+        found.stock = (found.stock || 0) + Number(l.qty || 0);
+        found.imported = (found.imported || 0) + Number(l.qty || 0);
+      }
+    });
+    jt.unshift(newReceipt);
+    setReceiptList([...jt]);
+    alert("✅ Tạo phiếu nhập thành công! Đã tăng số lượng tồn kho cho các sản phẩm đã chọn.");
+    t(!1);
+  };
   return (0, A.jsxs)(A.Fragment, {
     children: [
       (0, A.jsx)(rn, {
         ph: `Tìm theo mã phiếu...`,
         children: (0, A.jsxs)(M, {
-          onClick: () => t(!0),
+          onClick: () => {
+            setLines([{ prodId: (k[0] && k[0].id) || "IP0001", cost: (k[0] && k[0].cost) || 32291500, qty: 10 }]);
+            t(!0);
+          },
           children: [(0, A.jsx)(Ue, { size: 16 }), `Tạo phiếu nhập`],
         }),
       }),
       (0, A.jsx)(Vt, {
-        rows: jt,
+        rows: receiptList,
         cols: [
           {
             head: `Mã phiếu`,
@@ -19297,7 +19457,7 @@ function dn() {
       e &&
         (0, A.jsxs)(Ht, {
           wide: !0,
-          title: `Tạo phiếu nhập`,
+          title: `Tạo phiếu nhập hàng vào kho`,
           onClose: () => t(!1),
           footer: (0, A.jsxs)(A.Fragment, {
             children: [
@@ -19307,13 +19467,8 @@ function dn() {
                 children: `Huỷ`,
               }),
               (0, A.jsx)(M, {
-                variant: `secondary`,
-                onClick: () => t(!1),
-                children: `Lưu nháp`,
-              }),
-              (0, A.jsx)(M, {
-                onClick: () => t(!1),
-                children: `Hoàn thành phiếu`,
+                onClick: handleFinishReceipt,
+                children: `Hoàn thành phiếu nhập`,
               }),
             ],
           }),
@@ -19322,9 +19477,9 @@ function dn() {
               className: `grid gap-4 sm:grid-cols-2`,
               children: [
                 (0, A.jsx)(N, {
-                  label: `Mã phiếu`,
+                  label: `Mã phiếu nhập`,
                   children: (0, A.jsx)(P, {
-                    defaultValue: `PN0013`,
+                    defaultValue: `PN00` + String(receiptList.length + 13).padStart(2, "0"),
                     disabled: !0,
                   }),
                 }),
@@ -19332,7 +19487,7 @@ function dn() {
                   label: `Ngày nhập`,
                   children: (0, A.jsx)(P, {
                     type: `date`,
-                    defaultValue: `2026-10-02`,
+                    defaultValue: new Date().toISOString().slice(0, 10),
                   }),
                 }),
               ],
@@ -19342,16 +19497,26 @@ function dn() {
               children: [
                 (0, A.jsx)(`div`, {
                   className: `text-sm font-semibold`,
-                  children: `Chi tiết nhập hàng`,
+                  children: `Chọn sản phẩm có sẵn & số lượng nhập thêm:`,
                 }),
-                [0, 1].map((e) =>
+                lines.map((l, idx) =>
                   (0, A.jsxs)(
                     `div`,
                     {
                       className: `grid gap-3 sm:grid-cols-[1.6fr_1fr_0.7fr]`,
                       children: [
                         (0, A.jsx)(Pt, {
-                          defaultValue: k[e].id,
+                          value: l.prodId,
+                          onChange: (ev) => {
+                            let selP = k.find((p) => String(p.id) === String(ev.target.value));
+                            setLines((prev) =>
+                              prev.map((it, i) =>
+                                i === idx
+                                  ? { ...it, prodId: ev.target.value, cost: selP ? selP.cost : it.cost }
+                                  : it
+                              )
+                            );
+                          },
                           children: k.map((e) =>
                             (0, A.jsx)(
                               `option`,
@@ -19363,22 +19528,40 @@ function dn() {
                         (0, A.jsx)(P, {
                           type: `number`,
                           placeholder: `Giá nhập (₫)`,
-                          defaultValue: k[e].cost,
+                          value: l.cost,
+                          onChange: (ev) => {
+                            setLines((prev) =>
+                              prev.map((it, i) =>
+                                i === idx ? { ...it, cost: Number(ev.target.value) } : it
+                              )
+                            );
+                          },
                         }),
                         (0, A.jsx)(P, {
                           type: `number`,
                           placeholder: `SL`,
-                          defaultValue: 10,
+                          value: l.qty,
+                          onChange: (ev) => {
+                            setLines((prev) =>
+                              prev.map((it, i) =>
+                                i === idx ? { ...it, qty: Number(ev.target.value) } : it
+                              )
+                            );
+                          },
                         }),
                       ],
                     },
-                    e,
+                    idx,
                   ),
                 ),
-                (0, A.jsxs)(M, {
+                (0, A.jsx)(M, {
                   variant: `ghost`,
                   size: `sm`,
-                  children: [(0, A.jsx)(Ue, { size: 14 }), `Thêm dòng`],
+                  onClick: () => {
+                    let nextP = k[lines.length % k.length] || k[0];
+                    setLines((prev) => [...prev, { prodId: nextP.id, cost: nextP.cost, qty: 10 }]);
+                  },
+                  children: [(0, A.jsx)(Ue, { size: 14 }), `Thêm sản phẩm khác`],
                 }),
               ],
             }),
@@ -19930,31 +20113,9 @@ function _n() {
                 (0, A.jsx)(Kt, { go: f }),
               ],
             })),
-    (0, A.jsxs)(`div`, {
+    (0, A.jsx)(`div`, {
       className: `min-h-screen`,
-      children: [
-        _,
-        (0, A.jsx)(`div`, {
-          className: `fixed bottom-4 left-1/2 z-[60] flex -translate-x-1/2 gap-1 rounded-full border border-line bg-white/90 p-1 shadow-lift backdrop-blur-xl`,
-          children: [[`home`, `Khách hàng`, at]].map(([e, t, n]) =>
-            (0, A.jsxs)(
-              `button`,
-              {
-                onClick: () => f(e),
-                className: j(
-                  `flex h-9 items-center gap-1.5 rounded-full px-4 text-[13px] font-semibold transition`,
-                  (e === `home` && h === `store`) ||
-                    (e === `admin-login` && h === `admin`)
-                    ? `bg-ink text-white`
-                    : `text-ink-2 hover:bg-surface`,
-                ),
-                children: [(0, A.jsx)(n, { size: 14 }), t],
-              },
-              e,
-            ),
-          ),
-        }),
-      ],
+      children: _,
     })
   );
 }

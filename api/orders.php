@@ -150,6 +150,34 @@ if ($method === 'POST') {
     $total        = (int)round((float)($input['total'] ?? $input['tongTien'] ?? 0));
     $items        = $input['items'] ?? $input['cart'] ?? [];
     $customerId   = !empty($input['customerId']) ? trim((string)$input['customerId']) : (!empty($input['userId']) ? trim((string)$input['userId']) : null);
+    $clientOrderId= !empty($input['id']) ? trim((string)$input['id']) : null;
+
+    // Chặn trùng lặp đơn hàng do click liên tục (Anti-spam / Debounce)
+    $orderHistory = file_exists($dataFile) ? (json_decode(file_get_contents($dataFile), true) ?: []) : [];
+    if (!empty($orderHistory)) {
+        $recent = $orderHistory[0];
+        $isDuplicate = (
+            (!empty($clientOrderId) && (
+                (string)($recent['id'] ?? '') === (string)$clientOrderId ||
+                (string)($recent['id'] ?? '') === '#' . ltrim((string)$clientOrderId, '#')
+            )) ||
+            (
+                ($recent['phone'] ?? '') === $phone &&
+                (float)($recent['total'] ?? 0) === (float)$total &&
+                ($recent['customer'] ?? '') === $customerName &&
+                (time() - (int)($recent['createdAtTimestamp'] ?? 0)) < 4
+            )
+        );
+        if ($isDuplicate) {
+            echo json_encode([
+                'status'  => 'success',
+                'message' => 'Đơn hàng đã được tiếp nhận thành công',
+                'storage' => 'Anti-Duplicate Protection',
+                'order'   => $recent
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+    }
 
     // Sinh mã đơn <= 10 ký tự khớp với VARCHAR(10) của bảng don_hang
     $newId = '#DH' . rand(100, 999);
@@ -302,7 +330,8 @@ if ($method === 'POST') {
         'rawStatus'   => 'new',
         'pay'         => $pay,
         'items'       => $items,
-        'processedBy' => $_SERVER['SERVER_SOFTWARE'] ?? 'Web Server'
+        'processedBy' => $_SERVER['SERVER_SOFTWARE'] ?? 'Web Server',
+        'createdAtTimestamp' => time()
     ];
 
     $content = file_get_contents($dataFile);

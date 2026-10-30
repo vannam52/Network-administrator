@@ -1,5 +1,51 @@
 [
   {
+    "id": "#DH023",
+    "customerId": "1793275416761",
+    "customer": "Nam",
+    "phone": "đêô",
+    "address": "Dalat",
+    "date": "30/10/2026",
+    "ngay": "2026-10-30",
+    "total": 37990000,
+    "status": "Mới đặt",
+    "rawStatus": "new",
+    "pay": "Tiền mặt",
+    "items": [
+      {
+        "id": "IP0001",
+        "name": "iPhone 17 Pro Max 256GB | Chính hãng",
+        "price": 37990000,
+        "qty": 1
+      }
+    ],
+    "processedBy": "Local Dev Server (VS Code)",
+    "createdAtMs": 1793359215126
+  },
+  {
+    "id": "#DH022",
+    "customerId": "KH001",
+    "customer": "Khách hàng mẫu",
+    "phone": "0987654321",
+    "address": "lamdong",
+    "date": "30/10/2026",
+    "ngay": "2026-10-30",
+    "total": 37990000,
+    "status": "Mới đặt",
+    "rawStatus": "new",
+    "pay": "Tiền mặt",
+    "items": [
+      {
+        "id": "IP0001",
+        "name": "iPhone 17 Pro Max 256GB | Chính hãng",
+        "price": 37990000,
+        "qty": 1
+      }
+    ],
+    "processedBy": "Local Dev Server (VS Code)",
+    "createdAtMs": 1793340052039
+  },
+  {
     "id": "#DH021",
     "customerId": "1793275416761",
     "customer": "Nam",

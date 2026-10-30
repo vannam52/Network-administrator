@@ -137,56 +137,7 @@
   }
 
   // 5. Khắc phục sự kiện cho Menu Header (iPhone Store, Các dòng iPhone)
-  // Thay thế Slider động bị lỗi thành một Banner tĩnh đẹp mắt
-  function makeHeroBannerStatic() {
-    setInterval(() => {
-      // 1. TÌM VỊ TRÍ CHUẨN XÁC DỰA TRÊN 3 THẺ ICON "GIAO NHANH", "CHÍNH HÃNG"
-      const allDivs = document.querySelectorAll('div');
-      const cardsContainer = Array.from(allDivs).find(e => 
-          e.className && e.className.includes('mt-4') && e.className.includes('grid') && 
-          e.textContent.includes('Giao nhanh 2 giờ')
-      );
-
-      if (cardsContainer) {
-          const section = cardsContainer.parentElement;
-          
-          // 2. THẺ NGAY TRƯỚC 3 ICON CHÍNH LÀ SLIDER CŨ CỦA REACT -> XÓA SỔ NÓ!
-          const reactSlider = cardsContainer.previousElementSibling;
-          if (reactSlider && reactSlider.id !== 'my-static-hero-banner') {
-              reactSlider.remove();
-          }
-          
-          // 3. CHÈN BANNER TĨNH CỦA CHÚNG TA VÀO VỊ TRÍ ĐÓ (NGAY TRƯỚC 3 ICON)
-          if (!document.getElementById('my-static-hero-banner')) {
-              const staticBanner = document.createElement('div');
-              staticBanner.id = 'my-static-hero-banner';
-              staticBanner.innerHTML = `
-                <div style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); border-radius: 24px; padding: 56px 48px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); position: relative; overflow: hidden; width: 100%; box-sizing: border-box;">
-                  <div style="max-width: 55%; position: relative; z-index: 2;">
-                    <span style="color: #2563eb; font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px;">iPhone 15 Pro Max • Đỉnh cao công nghệ</span>
-                    <h1 style="font-size: 52px; font-weight: 800; color: #0f172a; margin: 16px 0; line-height: 1.1; letter-spacing: -1px;">Titanium.<br/>Bền nhẹ ấn tượng.</h1>
-                    <p style="color: #475569; font-size: 17px; margin-bottom: 36px; line-height: 1.6; max-width: 90%;">Khung viền titanium chuẩn hàng không vũ trụ siêu nhẹ, chip A17 Pro mạnh mẽ và cổng sạc USB-C siêu tốc.</p>
-                    <div style="display: flex; gap: 20px; align-items: center;">
-                      <button style="background: #2563eb; color: white; padding: 14px 32px; border-radius: 99px; font-weight: 600; font-size: 15px; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">Mua ngay</button>
-                      <span style="font-weight: 800; color: #0f172a; font-size: 19px;">Từ 19.990.000 đ</span>
-                    </div>
-                  </div>
-                  <div style="width: 45%; text-align: center; position: relative; z-index: 2;">
-                    <img src="/img/iphone15-pro-max-titan-xanh.webp" alt="iPhone 15 Pro Max" style="max-width: 90%; height: auto; filter: drop-shadow(0 20px 30px rgba(0,0,0,0.15)); transform: scale(1.05);" onerror="this.src='https://placehold.co/500x500/f1f5f9/475569?text=iPhone+15+Pro+Max'" />
-                  </div>
-                  <!-- Trang trí background -->
-                  <div style="position: absolute; top: -50px; right: -50px; width: 300px; height: 300px; background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, rgba(255,255,255,0) 70%); border-radius: 50%;"></div>
-                </div>
-              `;
-              section.insertBefore(staticBanner, cardsContainer);
-          }
-      }
-    }, 500);
-  }
-
   function initHeaderNavigation() {
-    // Khởi chạy fix banner
-    makeHeroBannerStatic();
     document.addEventListener('click', (e) => {
       const target = e.target.closest('header nav button');
       if (!target) return;
@@ -214,25 +165,10 @@
     });
   }
 
-  // 6. Tự động đồng bộ giỏ hàng với LocalStorage
-  function initCartPersistence() {
-    try {
-      const savedCart = localStorage.getItem('phone_store_cart') || localStorage.getItem('techno_store_cart');
-      if (savedCart) {
-        // Giữ giỏ hàng hợp lệ
-      }
-    } catch (err) { }
-  }
-
-  // 7. Thêm liên kết Cổng quản trị (Đã tắt do không dùng trang Admin)
-  function initAdminLoginEntry() {}
-
   // Khởi động khi DOM sẵn sàng
   window.addEventListener('DOMContentLoaded', () => {
     initProjectBadge();
     initHeaderNavigation();
-    initCartPersistence();
-    // initAdminLoginEntry();
     hideSpecificButtonsInstantly();
     fixLoginVulnerability();
     fixReactAdminSearchAndFilter();
@@ -281,8 +217,8 @@
         const buttons = document.querySelectorAll('button, a, div[role="button"], li');
         buttons.forEach(btn => {
           const text = btn.textContent.trim().toLowerCase();
-          // CHỈ ẨN đúng nút "Thêm danh mục" và "Tạo phiếu nhập", giữ nguyên các lựa chọn khác
-          if (text === 'thêm danh mục' || text === 'tạo phiếu nhập') {
+          // CHỈ ẨN đúng nút "Thêm danh mục", giữ nguyên các lựa chọn khác
+          if (text === 'thêm danh mục') {
             if (btn.tagName === 'A' || btn.tagName === 'BUTTON' || btn.tagName === 'LI') {
               btn.style.display = 'none';
             }
@@ -295,212 +231,11 @@
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  // 9. Vá lỗ hổng đăng nhập (Nhập bừa mật khẩu vẫn vào được)
-  // 9. Vá lỗ hổng đăng nhập (Nhập bừa mật khẩu vẫn vào được)
+  // 9. Quản lý sự kiện bổ trợ (Thêm sản phẩm cho trang quản trị)
   function fixLoginVulnerability() {
-    // Viết một hàm xử lý chung cho cả click nút Đăng nhập và ấn Enter
-    const handleLoginAttempt = async (e, form, btn) => {
-      const passInput = form.querySelector('input[type="password"]');
-      const contactInput = form.querySelector('input[type="tel"], input[type="text"], input[type="email"]');
-
-      if (passInput && contactInput && passInput.value) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-
-        const account = contactInput.value.trim();
-        const password = passInput.value.trim();
-
-        if (!account || !password) {
-          alert('Vui lòng nhập đầy đủ thông tin!');
-          return;
-        }
-
-        const originalText = btn ? btn.textContent : 'Đăng nhập';
-        if (btn) {
-          btn.textContent = 'Đang kiểm tra...';
-          btn.disabled = true;
-        }
-
-        try {
-          // 1. Kiểm tra tài khoản kiểm thử mặc định
-          if ((account === '0987654321' || account === 'khachhang@gmail.com') && password === '123456') {
-            const defUser = {
-              id: 'KH001',
-              name: 'Khách hàng mẫu',
-              phone: '0987654321',
-              email: 'khachhang@gmail.com',
-              joined: 'Thành viên từ 01/10/2026',
-              orders: 0
-            };
-            localStorage.setItem('phone_store_user', JSON.stringify(defUser));
-            localStorage.setItem('techno_current_user', JSON.stringify(defUser));
-            alert('Đăng nhập thành công!');
-            window.location.href = '/';
-            return;
-          }
-
-          // 2. Gọi API xác thực
-          let data = null;
-          try {
-            const apiUrl = '/api/auth.php';
-            const res = await fetch(apiUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ phone: account, email: account, account, password })
-            });
-            if (res.ok) data = await res.json();
-          } catch (e) {}
-
-          if (data && data.status === 'success' && data.user) {
-            localStorage.setItem('phone_store_user', JSON.stringify(data.user));
-            localStorage.setItem('techno_current_user', JSON.stringify(data.user));
-            alert('Đăng nhập thành công!');
-            window.location.href = '/';
-            return;
-          }
-
-          // 3. Fallback kiểm tra tài khoản đã đăng ký cục bộ
-          try {
-            const localU = JSON.parse(localStorage.getItem('techno_registered_users') || '[]');
-            const found = localU.find(u =>
-              (u.phone && u.phone === account) ||
-              (u.email && u.email.toLowerCase() === account.toLowerCase()) ||
-              (u.name && u.name.toLowerCase() === account.toLowerCase())
-            );
-            if (found) {
-              if (found.password && password && found.password !== password) {
-                alert('❌ Mật khẩu không chính xác!');
-                if (btn) { btn.textContent = originalText; btn.disabled = false; }
-                return;
-              }
-              localStorage.setItem('phone_store_user', JSON.stringify(found));
-              localStorage.setItem('techno_current_user', JSON.stringify(found));
-              alert('Đăng nhập thành công!');
-              window.location.href = '/';
-              return;
-            }
-          } catch (e) {}
-
-          alert('❌ ' + (data && data.message ? data.message : 'Sai số điện thoại/email hoặc mật khẩu!'));
-          if (btn) {
-            btn.textContent = originalText;
-            btn.disabled = false;
-          }
-        } catch (err) {
-          alert('❌ Có lỗi xảy ra khi đăng nhập: ' + err.message);
-          if (btn) {
-            btn.textContent = originalText;
-            btn.disabled = false;
-          }
-        }
-      }
-    };
-    // Bắt sự kiện CLICK vào nút Đăng nhập và Thêm Sản Phẩm
     document.addEventListener('click', async (e) => {
       const btn = e.target.closest('button');
       if (!btn) return;
-
-      // XỬ LÝ ĐĂNG XUẤT (Dọn sạch cả 2 key LocalStorage)
-      if (btn.textContent.toLowerCase().includes('đăng xuất')) {
-        localStorage.removeItem('phone_store_user');
-        localStorage.removeItem('techno_current_user');
-      }
-
-      // XỬ LÝ ĐĂNG NHẬP
-      if (btn.textContent.toLowerCase().includes('đăng nhập')) {
-        const form = btn.closest('form') || btn.closest('.flex-col') || document.querySelector('form');
-        if (form) handleLoginAttempt(e, form, btn);
-        return;
-      }
-
-      // XỬ LÝ ĐĂNG KÝ (Thêm user vào Database)
-      const btnText = btn.textContent.toLowerCase();
-      if ((btnText.includes('đăng ký') || btnText.includes('tạo tài khoản')) && !btnText.includes('đăng nhập')) {
-        const form = btn.closest('form');
-        if (form) {
-          // Chỉ lấy các input thực sự để nhập chữ/số (bỏ qua checkbox, radio)
-          const textInputs = Array.from(form.querySelectorAll('input')).filter(input =>
-            ['text', 'email', 'password', 'tel', 'number'].includes(input.type)
-          );
-
-          // Form Đăng ký luôn có ít nhất 3 ô nhập liệu chữ (Tên, SĐT, Mật khẩu)
-          // Form Đăng nhập chỉ có 2 ô (SĐT, Mật khẩu)
-          if (textInputs.length >= 3) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-
-            const name = textInputs[0].value.trim();
-            const contact = textInputs[1].value.trim();
-            const password = textInputs[2].value.trim();
-
-            if (!name || !contact || !password) {
-              alert('Vui lòng nhập đầy đủ thông tin đăng ký!');
-              return;
-            }
-
-            const originalText = btn.textContent;
-            btn.textContent = 'Đang đăng ký...';
-            btn.disabled = true;
-
-            const isEmail = contact.includes('@');
-            const reqPhone = isEmail ? '' : contact;
-            const reqEmail = isEmail ? contact : (contact + '@phonestore.local');
-
-            try {
-              const apiUrl = '/api/users.php';
-              const res = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, phone: reqPhone, email: reqEmail, password })
-              });
-
-              if (res.ok) {
-                const data = await res.json();
-                try {
-                  const regUsers = JSON.parse(localStorage.getItem('techno_registered_users') || '[]');
-                  regUsers.unshift({ ...data.user, password });
-                  localStorage.setItem('techno_registered_users', JSON.stringify(regUsers));
-                } catch (e) {}
-                alert('Đăng ký tài khoản thành công!');
-                localStorage.setItem('phone_store_user', JSON.stringify(data.user));
-                localStorage.setItem('techno_current_user', JSON.stringify(data.user));
-                window.location.href = '/';
-              } else {
-                const errorData = await res.json();
-                alert('❌ ' + (errorData.message || 'Đăng ký thất bại, Email hoặc Số điện thoại đã tồn tại!'));
-                btn.textContent = originalText;
-                btn.disabled = false;
-              }
-            } catch (err) {
-              // Fallback lưu tài khoản cục bộ nếu Backend offline/lỗi mạng
-              const fallbackId = 'KH' + Math.floor(Math.random() * 1000);
-              const fallbackUser = {
-                id: fallbackId,
-                name: name,
-                hoTen: name,
-                phone: reqPhone,
-                email: reqEmail,
-                password: password,
-                joined: new Date().toLocaleDateString('vi-VN'),
-                orders: 0
-              };
-              try {
-                const regUsers = JSON.parse(localStorage.getItem('techno_registered_users') || '[]');
-                regUsers.unshift(fallbackUser);
-                localStorage.setItem('techno_registered_users', JSON.stringify(regUsers));
-              } catch (e) {}
-              localStorage.setItem('phone_store_user', JSON.stringify(fallbackUser));
-              localStorage.setItem('techno_current_user', JSON.stringify(fallbackUser));
-              alert('Đăng ký tài khoản thành công!');
-              window.location.href = '/';
-              return;
-            }
-            return;
-          }
-        }
-      }
 
       // XỬ LÝ THÊM SẢN PHẨM (Nút bị liệt của React)
       if (btn.textContent.toLowerCase().includes('thêm sản phẩm')) {
@@ -612,15 +347,5 @@
         };
       }
     }, true);
-
-    // Bắt sự kiện SUBMIT form (Khi ấn Enter)
-    document.addEventListener('submit', (e) => {
-      const form = e.target;
-      const btn = form.querySelector('button[type="submit"]') || form.querySelector('button');
-      if (btn && btn.textContent.toLowerCase().includes('đăng nhập')) {
-        handleLoginAttempt(e, form, btn);
-      }
-    }, true);
-
   }
 })();

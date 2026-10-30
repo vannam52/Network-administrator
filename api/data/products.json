@@ -18,11 +18,11 @@
       "#1e293b",
       "#334155"
     ],
-    "stock": 4,
+    "stock": 1,
     "rating": 5,
     "isNew": true,
     "imported": 50,
-    "sold": 6,
+    "sold": 9,
     "img": "img/iphone17.webp"
   },
   {
@@ -778,5 +778,17 @@
     "imported": 50,
     "sold": 0,
     "img": "img/iphone-11.webp"
+  },
+  {
+    "id": null,
+    "code": "SP4324",
+    "name": "ip X",
+    "price": 10000000,
+    "stock": 1,
+    "category": "Khác",
+    "brand": "Khác",
+    "isNew": true,
+    "imported": 1,
+    "sold": 0
   }
 ]

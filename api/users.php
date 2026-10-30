@@ -33,7 +33,7 @@ if ($method === 'GET') {
     if ($pdo !== null) {
         try {
             // Kết nối bảng users với bảng don_hang để đếm đúng số đơn hàng của từng khách
-            $sql = "SELECT u.id, u.hoTen AS name, u.hoTen, u.email, u.sdt AS phone, u.role, u.trangThai,
+            $sql = "SELECT u.id, u.hoTen AS name, u.hoTen, u.email, u.sdt AS phone, u.diaChi AS address, u.diaChi, u.role, u.trangThai,
                            COUNT(d.id) AS orders
                     FROM users u
                     LEFT JOIN don_hang d ON u.id = d.customerId
@@ -46,16 +46,18 @@ if ($method === 'GET') {
                 $st = $u['trangThai'] ?? '';
                 $isLocked = ($st === 'Bị khoá' || $st === 'Bị khóa' || $st === 'Bi khoá');
                 $users[] = [
-                    'id'     => (string)$u['id'],
-                    'name'   => $u['name'],
-                    'hoTen'  => $u['hoTen'],
-                    'email'  => $u['email'],
-                    'phone'  => $u['phone'],
-                    'sdt'    => $u['phone'],
-                    'role'   => $u['role'] ?? 'customer',
-                    'joined' => '2025',
-                    'orders' => (int)($u['orders'] ?? 0),
-                    'locked' => $isLocked
+                    'id'      => (string)$u['id'],
+                    'name'    => $u['name'],
+                    'hoTen'   => $u['hoTen'],
+                    'email'   => $u['email'] ?? '',
+                    'phone'   => $u['phone'] ?? '',
+                    'sdt'     => $u['phone'] ?? '',
+                    'address' => $u['address'] ?? $u['diaChi'] ?? '',
+                    'diaChi'  => $u['diaChi'] ?? '',
+                    'role'    => $u['role'] ?? 'customer',
+                    'joined'  => '2025',
+                    'orders'  => (int)($u['orders'] ?? 0),
+                    'locked'  => $isLocked
                 ];
             }
             $dataSource = 'MySQL Central Database (VM 4)';
@@ -229,26 +231,51 @@ if ($method === 'DELETE') {
 }
 
 // ==========================================
-// 4. KHÓA / MỞ KHÓA TÀI KHOẢN (PUT)
+// 4. CẬP NHẬT THÔNG TIN / KHÓA TÀI KHOẢN (PUT)
 // ==========================================
 if ($method === 'PUT') {
     $rawInput = file_get_contents('php://input');
     $input = json_decode($rawInput, true);
     if ($input && !empty($input['id'])) {
-        $isLocked = !empty($input['locked']);
+        $userId       = (string)$input['id'];
+        $hasLockField = isset($input['locked']);
+        $nameVal      = (isset($input['name']) || isset($input['hoTen'])) ? trim($input['name'] ?? $input['hoTen'] ?? '') : null;
+        $phoneVal     = (isset($input['phone']) || isset($input['sdt'])) ? trim($input['phone'] ?? $input['sdt'] ?? '') : null;
+        $emailVal     = isset($input['email']) ? trim($input['email']) : null;
+        $addrVal      = (isset($input['address']) || isset($input['diaChi'])) ? trim($input['address'] ?? $input['diaChi'] ?? '') : null;
+
         if ($pdo !== null) {
             try {
-                // Lưu đúng 'Bị khoá' có dấu nặng khớp với dữ liệu gốc trong SQL
-                $stmt = $pdo->prepare("UPDATE users SET trangThai = ? WHERE id = ?");
-                $newStatus = $isLocked ? 'Bị khoá' : 'Hoạt động';
-                $stmt->execute([$newStatus, (string)$input['id']]);
+                if ($hasLockField) {
+                    $isLocked = !empty($input['locked']);
+                    $newStatus = $isLocked ? 'Bị khoá' : 'Hoạt động';
+                    $stmt = $pdo->prepare("UPDATE users SET trangThai = ? WHERE id = ?");
+                    $stmt->execute([$newStatus, $userId]);
+                }
+                $updates = [];
+                $params  = [];
+                if ($nameVal !== null)  { $updates[] = "hoTen = ?";  $params[] = $nameVal; }
+                if ($phoneVal !== null) { $updates[] = "sdt = ?";    $params[] = $phoneVal; }
+                if ($emailVal !== null) { $updates[] = "email = ?";  $params[] = $emailVal; }
+                if ($addrVal !== null)  { $updates[] = "diaChi = ?"; $params[] = $addrVal; }
+
+                if (!empty($updates)) {
+                    $params[] = $userId;
+                    $stmt = $pdo->prepare("UPDATE users SET " . implode(", ", $updates) . " WHERE id = ?");
+                    $stmt->execute($params);
+                }
             } catch (Throwable $e) {}
         }
+
         $content = file_get_contents($dataFile);
         $users = json_decode($content, true) ?: [];
         foreach ($users as &$u) {
-            if ((string)$u['id'] === (string)$input['id']) {
-                $u['locked'] = $isLocked;
+            if ((string)$u['id'] === $userId) {
+                if ($hasLockField)       $u['locked']  = !empty($input['locked']);
+                if ($nameVal !== null)  { $u['name']    = $nameVal; $u['hoTen'] = $nameVal; }
+                if ($phoneVal !== null) { $u['phone']   = $phoneVal; $u['sdt'] = $phoneVal; }
+                if ($emailVal !== null)   $u['email']   = $emailVal;
+                if ($addrVal !== null)  { $u['address'] = $addrVal; $u['diaChi'] = $addrVal; }
             }
         }
         unset($u);

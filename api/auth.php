@@ -45,13 +45,15 @@ if ($pdo !== null) {
             $dbPass = (string)($user['matKhau'] ?? '');
             if (password_verify($password, $dbPass) || $password === $dbPass) {
                 $mappedUser = [
-                    'id'    => (string)$user['id'],
-                    'name'  => $user['hoTen'],
-                    'hoTen' => $user['hoTen'],
-                    'email' => $user['email'],
-                    'phone' => $user['sdt'],
-                    'sdt'   => $user['sdt'],
-                    'role'  => $user['role'] ?? 'customer'
+                    'id'      => (string)$user['id'],
+                    'name'    => $user['hoTen'],
+                    'hoTen'   => $user['hoTen'],
+                    'email'   => $user['email'] ?? '',
+                    'phone'   => $user['sdt'] ?? '',
+                    'sdt'     => $user['sdt'] ?? '',
+                    'address' => $user['diaChi'] ?? '',
+                    'diaChi'  => $user['diaChi'] ?? '',
+                    'role'    => $user['role'] ?? 'customer'
                 ];
                 echo json_encode(['status' => 'success', 'user' => $mappedUser], JSON_UNESCAPED_UNICODE);
                 exit;
@@ -85,9 +87,11 @@ if (file_exists($dataFile)) {
                 $u['id']    = (string)$u['id'];
                 $u['name']  = $u['name'] ?? $u['hoTen'] ?? 'Khách hàng';
                 $u['hoTen'] = $u['hoTen'] ?? $u['name'];
-                $u['phone'] = $uPhone;
-                $u['sdt']   = $uPhone;
-                $u['role']  = $u['role'] ?? 'customer';
+                $u['phone']   = $uPhone;
+                $u['sdt']     = $uPhone;
+                $u['address'] = $u['address'] ?? $u['diaChi'] ?? '';
+                $u['diaChi']  = $u['address'];
+                $u['role']    = $u['role'] ?? 'customer';
                 echo json_encode(['status' => 'success', 'user' => $u], JSON_UNESCAPED_UNICODE);
                 exit;
             } else {
